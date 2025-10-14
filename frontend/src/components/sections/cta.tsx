@@ -12,7 +12,7 @@ export function CTASection() {
             <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl text-gray-900">
               Ready to Take Control of Your Health Data?
             </h2>
-            <p className="mx-auto max-w-[600px] text-gray-600 md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed">
+            <p className="mx-auto max-w-none md:max-w-3xl text-gray-600 text-base sm:text-lg md:text-xl leading-relaxed">
               Join thousands of patients who have already taken control of their healthcare journey.
             </p>
           </div>

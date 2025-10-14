@@ -12,7 +12,7 @@ export default function HomePage() {
     <div className="flex flex-col min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
       <Header />
       
-      <main className="flex-1">
+      <main className="flex-1 w-full">
         <HeroSection />
         <FeaturesSection />
         <HowItWorksSection />

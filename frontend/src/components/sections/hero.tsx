@@ -6,7 +6,7 @@ export function HeroSection() {
   return (
     <section className="w-full py-12 md:py-24 lg:py-32">
       <div className="container px-4 md:px-6">
-        <div className="grid gap-6 lg:grid-cols-[1fr_400px] lg:gap-12 xl:grid-cols-[1fr_600px]">
+        <div className="grid gap-8 md:grid-cols-2 lg:gap-12 xl:gap-16 items-center">
           <div className="flex flex-col justify-center space-y-4">
             <div className="space-y-2">
               <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">
@@ -15,7 +15,7 @@ export function HeroSection() {
               <h1 className="text-3xl font-bold tracking-tighter sm:text-5xl xl:text-6xl/none text-gray-900">
                 Own Your Health Data. <span className="text-blue-600">Control Your Care.</span>
               </h1>
-              <p className="max-w-[600px] text-gray-600 md:text-xl">
+              <p className="max-w-none md:max-w-2xl text-gray-600 text-base sm:text-lg md:text-xl leading-relaxed">
                 Experience the future of healthcare with our decentralized platform. Secure, private, and
                 patient-controlled health records powered by blockchain technology.
               </p>
@@ -29,28 +29,28 @@ export function HeroSection() {
                 Watch Demo
               </Button>
             </div>
-            <div className="flex items-center gap-4 text-sm text-gray-600">
+            <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-xs sm:text-sm text-gray-600">
               <div className="flex items-center gap-1">
-                <CheckCircle className="h-4 w-4 text-green-600" />
+                <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4 text-green-600" />
                 <span>HIPAA Compliant</span>
               </div>
               <div className="flex items-center gap-1">
-                <CheckCircle className="h-4 w-4 text-green-600" />
+                <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4 text-green-600" />
                 <span>Blockchain Secured</span>
               </div>
               <div className="flex items-center gap-1">
-                <CheckCircle className="h-4 w-4 text-green-600" />
+                <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4 text-green-600" />
                 <span>Patient Owned</span>
               </div>
             </div>
           </div>
           <div className="flex items-center justify-center">
-            <div className="relative">
+            <div className="relative w-full max-w-2xl">
               <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-green-400 rounded-lg blur-3xl opacity-30"></div>
-              <div className="relative w-[600px] h-[400px] bg-gradient-to-br from-blue-100 to-green-100 rounded-lg shadow-2xl flex items-center justify-center">
+              <div className="relative w-full aspect-[3/2] bg-gradient-to-br from-blue-100 to-green-100 rounded-lg shadow-2xl flex items-center justify-center">
                 <div className="text-gray-500 text-center">
-                  <div className="text-4xl mb-2">🏥</div>
-                  <div className="text-sm">Healthcare Dashboard</div>
+                  <div className="text-3xl sm:text-4xl lg:text-5xl mb-2">🏥</div>
+                  <div className="text-xs sm:text-sm lg:text-base">Healthcare Dashboard</div>
                 </div>
               </div>
             </div>
