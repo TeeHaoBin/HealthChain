@@ -19,7 +19,7 @@ export function FeaturesSection() {
           </div>
         </div>
         <div className="mx-auto grid max-w-6xl items-start gap-6 py-12 sm:grid-cols-2 lg:grid-cols-3 lg:gap-8">
-          <Card className="border-2 hover:border-blue-200 transition-colors">
+          <Card className="border-2 border-gray-200 hover:border-gray-900 transition-colors">
             <CardHeader>
               <Database className="h-12 w-12 text-blue-600 mb-2" />
               <CardTitle>Patient-Owned Records</CardTitle>
@@ -29,7 +29,7 @@ export function FeaturesSection() {
               </CardDescription>
             </CardHeader>
           </Card>
-          <Card className="border-2 hover:border-blue-200 transition-colors">
+          <Card className="border-2 border-gray-200 hover:border-gray-900 transition-colors">
             <CardHeader>
               <Shield className="h-12 w-12 text-green-600 mb-2" />
               <CardTitle>Blockchain Security</CardTitle>
@@ -39,7 +39,7 @@ export function FeaturesSection() {
               </CardDescription>
             </CardHeader>
           </Card>
-          <Card className="border-2 hover:border-blue-200 transition-colors">
+          <Card className="border-2 border-gray-200 hover:border-gray-900 transition-colors">
             <CardHeader>
               <Globe className="h-12 w-12 text-purple-600 mb-2" />
               <CardTitle>Global Interoperability</CardTitle>
@@ -49,7 +49,7 @@ export function FeaturesSection() {
               </CardDescription>
             </CardHeader>
           </Card>
-          <Card className="border-2 hover:border-blue-200 transition-colors">
+          <Card className="border-2 border-gray-200 hover:border-gray-900 transition-colors">
             <CardHeader>
               <Zap className="h-12 w-12 text-yellow-600 mb-2" />
               <CardTitle>Instant Access</CardTitle>
@@ -59,7 +59,7 @@ export function FeaturesSection() {
               </CardDescription>
             </CardHeader>
           </Card>
-          <Card className="border-2 hover:border-blue-200 transition-colors">
+          <Card className="border-2 border-gray-200 hover:border-gray-900 transition-colors">
             <CardHeader>
               <Users className="h-12 w-12 text-red-600 mb-2" />
               <CardTitle>Care Coordination</CardTitle>
@@ -68,7 +68,7 @@ export function FeaturesSection() {
               </CardDescription>
             </CardHeader>
           </Card>
-          <Card className="border-2 hover:border-blue-200 transition-colors">
+          <Card className="border-2 border-gray-200 hover:border-gray-900 transition-colors">
             <CardHeader>
               <Lock className="h-12 w-12 text-indigo-600 mb-2" />
               <CardTitle>Privacy First</CardTitle>
