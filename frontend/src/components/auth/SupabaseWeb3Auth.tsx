@@ -248,17 +248,6 @@ Issued At: ${new Date().toISOString()}`
             </div>
           </div>
 
-          <div className="flex space-x-2">
-            <Button 
-              onClick={() => window.location.href = '/dashboard'} 
-              className="flex-1"
-            >
-              Go to Dashboard
-            </Button>
-            <Button onClick={handleLogout} variant="outline">
-              Sign Out
-            </Button>
-          </div>
 
           <div className="text-xs text-gray-500 text-center">
             <p>🔐 Your session is cryptographically secure and HIPAA compliant</p>
