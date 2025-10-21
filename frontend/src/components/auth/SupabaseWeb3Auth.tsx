@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useAccount, useSignMessage } from 'wagmi'
+import { useAccount, useSignMessage, useChainId } from 'wagmi'
 import { Button } from '@/components/ui/button'
 import { supabase } from '@/lib/supabase/client'
 import { getUserByWallet } from '@/lib/supabase/helpers'
@@ -17,6 +17,7 @@ interface AuthState {
 export default function SupabaseWeb3Auth() {
   const { address, isConnected } = useAccount()
   const { signMessageAsync } = useSignMessage()
+  const chainId = useChainId()
   const [authState, setAuthState] = useState<AuthState>({
     step: 'connect',
     user: null,
@@ -57,7 +58,7 @@ I authorize HealthChain to access my medical records securely.
 
 URI: ${window.location.origin}
 Version: 1
-Chain ID: 1
+Chain ID: ${chainId}
 Nonce: ${nonce}
 Issued At: ${new Date().toISOString()}`
   }
@@ -77,7 +78,10 @@ Issued At: ${new Date().toISOString()}`
       const message = generateAuthMessage(address, nonce)
 
       // Step 3: Get user signature
-      const signature = await signMessageAsync({ message })
+      const signature = await signMessageAsync({ 
+        message,
+        account: address as `0x${string}` // Ensure we sign with the connected account
+      })
 
       // Step 4: Authenticate with our custom function
       const { data: authResult, error: authError } = await supabase.rpc('auth_web3_secure', {

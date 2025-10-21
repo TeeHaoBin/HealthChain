@@ -1,5 +1,6 @@
 import SupabaseWeb3Auth from '@/components/auth/SupabaseWeb3Auth'
 import WalletConnect from '@/components/auth/WalletConnect'
+import NetworkChecker from '@/components/shared/NetworkChecker'
 
 export default function AuthPage() {
   return (
@@ -15,6 +16,9 @@ export default function AuthPage() {
         </div>
         
         <div className="bg-white rounded-lg shadow-lg p-8 space-y-6">
+          {/* Network Check - Show warning if not on Sepolia */}
+          <NetworkChecker />
+          
           {/* Step 1: Wallet Connection */}
           <WalletConnect />
           

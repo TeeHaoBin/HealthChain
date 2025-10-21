@@ -22,7 +22,7 @@ export default function WalletConnect() {
       <div className="space-y-4">
         <div className="text-center">
           <h3 className="text-lg font-medium text-gray-900 mb-2">
-            Choose Your Wallet
+            Connect Your Wallet
           </h3>
           <p className="text-sm text-gray-600">
             Connect your wallet to access your healthcare data securely
@@ -63,7 +63,7 @@ export default function WalletConnect() {
     <div className="space-y-4">
       <div className="text-center">
         <h3 className="text-lg font-medium text-gray-900 mb-2">
-          Choose Your Wallet
+          Connect Your Wallet
         </h3>
         <p className="text-sm text-gray-600">
           Connect your wallet to access your healthcare data securely
