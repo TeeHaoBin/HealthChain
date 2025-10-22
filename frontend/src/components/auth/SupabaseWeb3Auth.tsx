@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useAccount, useSignMessage, useChainId } from 'wagmi'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { supabase } from '@/lib/supabase/client'
 import { getUserByWallet } from '@/lib/supabase/helpers'
@@ -18,6 +19,7 @@ export default function SupabaseWeb3Auth() {
   const { address, isConnected } = useAccount()
   const { signMessageAsync } = useSignMessage()
   const chainId = useChainId()
+  const router = useRouter()
   const [authState, setAuthState] = useState<AuthState>({
     step: 'connect',
     user: null,
@@ -131,14 +133,65 @@ Issued At: ${new Date().toISOString()}`
   }
 
   const handleKYCComplete = async () => {
+    console.log('🔄 handleKYCComplete called')
     // After KYC completion, authenticate the user
-    const existingUser = await getUserByWallet(address!)
-    if (existingUser) {
-      setAuthState({
-        step: 'complete',
-        user: existingUser,
-        isAuthenticated: true
-      })
+    if (!address) {
+      console.log('❌ No address available')
+      return
+    }
+    
+    try {
+      console.log('🔍 Getting user by wallet:', address)
+      const existingUser = await getUserByWallet(address)
+      
+      if (existingUser) {
+        console.log('✅ User found, setting auth state:', existingUser)
+        
+        // Set authenticated state
+        setAuthState({
+          step: 'complete',
+          user: existingUser,
+          isAuthenticated: true
+        })
+        
+        // Store auth state in localStorage as backup
+        const authData = {
+          wallet: address,
+          user: existingUser,
+          timestamp: Date.now()
+        }
+        console.log('💾 Saving auth to localStorage:', authData)
+        localStorage.setItem('healthchain_auth', JSON.stringify(authData))
+        
+        // Verify it was saved
+        const saved = localStorage.getItem('healthchain_auth')
+        console.log('✅ Verified localStorage save:', saved ? 'Success' : 'Failed')
+        
+        // Redirect to appropriate dashboard using Next.js router (preserves state)
+        setTimeout(() => {
+          console.log('🔄 Redirecting to dashboard for role:', existingUser.role)
+          let dashboardPath = '/dashboard'
+          
+          switch (existingUser.role) {
+            case 'patient':
+              dashboardPath = '/patient/dashboard'
+              break
+            case 'doctor':
+              dashboardPath = '/doctor/dashboard'
+              break
+            case 'admin':
+              dashboardPath = '/admin/dashboard'
+              break
+          }
+          
+          console.log('🔄 Using router.push to:', dashboardPath)
+          router.push(dashboardPath)
+        }, 1000)
+      } else {
+        console.log('❌ No user found after KYC completion')
+      }
+    } catch (error) {
+      console.error('❌ Error in handleKYCComplete:', error)
     }
   }
 

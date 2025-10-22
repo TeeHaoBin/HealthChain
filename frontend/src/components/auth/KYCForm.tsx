@@ -28,7 +28,11 @@ interface KYCFormData {
   hospitalAffiliation?: string
 }
 
-export default function KYCForm() {
+interface KYCFormProps {
+  onComplete?: () => void
+}
+
+export default function KYCForm({ onComplete }: KYCFormProps) {
   const { address, isConnected } = useAccount()
   const [formData, setFormData] = useState<KYCFormData>({
     role: 'patient',
@@ -106,11 +110,20 @@ export default function KYCForm() {
         }
       }
 
-      console.log('KYC data saved successfully!')
+      console.log('🎉 KYC data saved successfully!')
       
-      // Redirect based on role after successful submission
-      const dashboardPath = formData.role === 'doctor' ? '/doctor/dashboard' : '/patient/dashboard'
-      window.location.href = dashboardPath
+      // Call the onComplete callback to notify parent component
+      if (onComplete) {
+        console.log('🔄 Calling onComplete callback')
+        console.log('🔄 onComplete function type:', typeof onComplete)
+        onComplete()
+        console.log('🔄 onComplete callback finished')
+      } else {
+        // Fallback: direct redirect if no callback provided
+        console.log('🔄 No callback provided, doing direct redirect')
+        const dashboardPath = formData.role === 'doctor' ? '/doctor/dashboard' : '/patient/dashboard'
+        window.location.href = dashboardPath
+      }
     } catch (error) {
       console.error('KYC submission failed:', error)
       alert('Failed to submit KYC data. Please try again.')
