@@ -24,13 +24,12 @@ export function Header() {
             Contact
           </Link>
         </nav>
-        <div className="ml-4 md:ml-6 flex gap-2">
-          <Button variant="outline" size="sm" className="hidden sm:inline-flex">
-            Sign In
-          </Button>
-          <Button size="sm" className="bg-blue-600 hover:bg-blue-700">
-            Get Started
-          </Button>
+        <div className="ml-4 md:ml-6">
+          <Link href="/auth">
+            <Button size="sm" className="bg-blue-600 hover:bg-blue-700">
+              Get Started
+            </Button>
+          </Link>
         </div>
       </div>
     </header>
