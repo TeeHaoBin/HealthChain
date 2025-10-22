@@ -5,7 +5,7 @@ import { useAccount, useSignMessage, useChainId } from 'wagmi'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { supabase } from '@/lib/supabase/client'
-import { getUserByWallet } from '@/lib/supabase/helpers'
+import { getUserByWallet, updateLastLogin } from '@/lib/supabase/helpers'
 import { Wallet, Shield, CheckCircle, AlertTriangle } from 'lucide-react'
 import KYCForm from './KYCForm'
 
@@ -153,6 +153,9 @@ Issued At: ${new Date().toISOString()}`
           user: existingUser,
           isAuthenticated: true
         })
+        
+        // Update last login timestamp
+        await updateLastLogin(existingUser.id)
         
         // Store auth state in localStorage as backup
         const authData = {
