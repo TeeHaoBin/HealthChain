@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useAccount } from 'wagmi'
 import { supabase } from '@/lib/supabase/client'
 import { getUserByWallet, type UserRole, type User } from '@/lib/supabase/helpers'
+import { logoutStateManager } from '@/lib/auth/logoutState'
 
 interface UseRoleReturn {
   role: UserRole | null
@@ -19,15 +20,59 @@ export function useRole(): UseRoleReturn {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [user, setUser] = useState<User | null>(null)
+  const [isLoggingOut, setIsLoggingOut] = useState(logoutStateManager.getIsLoggingOut())
+
+  // Subscribe to logout state changes
+  useEffect(() => {
+    const unsubscribe = logoutStateManager.subscribe(() => {
+      const currentLogoutState = logoutStateManager.getIsLoggingOut()
+      console.log('🔄 useRole: Logout state changed to:', currentLogoutState ? 'LOGGING OUT' : 'NOT LOGGING OUT')
+      setIsLoggingOut(currentLogoutState)
+      
+      // If logout started, immediately clear auth state
+      if (currentLogoutState) {
+        console.log('🚫 useRole: Immediately clearing auth state due to logout')
+        setRole(null)
+        setUser(null)
+        setLoading(false)
+        setError(null)
+      }
+    })
+    
+    return unsubscribe
+  }, [])
 
   useEffect(() => {
     const checkAuthAndRole = async () => {
+      // CRITICAL: Block all authentication during logout (check real-time state)
+      if (isLoggingOut || logoutStateManager.getIsLoggingOut()) {
+        console.log('🚫 useRole blocked - logout in progress')
+        setRole(null)
+        setUser(null)
+        setLoading(false)
+        setError(null)
+        return
+      }
+
       setLoading(true)
       setError(null)
 
       try {
         // First check Supabase Auth session
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+        const sessionResult = await logoutStateManager.blockAuthDuringLogout(
+          () => supabase.auth.getSession(),
+          'Supabase session check'
+        )
+        
+        if (!sessionResult) {
+          // Blocked during logout
+          setRole(null)
+          setUser(null)
+          setLoading(false)
+          return
+        }
+
+        const { data: { session }, error: sessionError } = sessionResult
         
         if (sessionError) throw sessionError
 
@@ -36,14 +81,16 @@ export function useRole(): UseRoleReturn {
           const walletAddress = session.user.user_metadata?.wallet_address
           
           if (walletAddress) {
-            // Get user role from our custom users table
-            const userData = await getUserByWallet(walletAddress)
+            // Get user role from our custom users table (with logout protection)
+            const userData = await logoutStateManager.blockAuthDuringLogout(
+              () => getUserByWallet(walletAddress),
+              'User lookup by wallet (from session)'
+            )
             
             if (userData) {
               setRole(userData.role)
               setUser(userData)
             } else {
-              // Session exists but no user data (should not happen)
               setRole(null)
               setUser(null)
             }
@@ -53,14 +100,21 @@ export function useRole(): UseRoleReturn {
             setUser(null)
           }
         } else if (address && isConnected) {
-          // Wallet connected but no Supabase session
-          // Check if user exists (for fallback to old system)
-          const userData = await getUserByWallet(address)
+          // Fallback wallet authentication when no Supabase session exists
+          console.log('ℹ️ Wallet connected but no Supabase session - attempting wallet-based auth for:', address)
+          
+          // Check if user exists (for fallback to old system) - with logout protection
+          const userData = await logoutStateManager.blockAuthDuringLogout(
+            () => getUserByWallet(address),
+            'User lookup by wallet (fallback)'
+          )
           
           if (userData) {
+            console.log('✅ Wallet-based authentication successful - user found:', userData.role)
             setRole(userData.role)
             setUser(userData)
           } else {
+            console.log('ℹ️ Wallet connected but no user record found - user needs to register')
             setRole(null)
             setUser(null)
           }
@@ -89,7 +143,7 @@ export function useRole(): UseRoleReturn {
     })
 
     return () => subscription.unsubscribe()
-  }, [address, isConnected])
+  }, [address, isConnected, isLoggingOut]) // Added isLoggingOut to dependencies
 
   return {
     role,
