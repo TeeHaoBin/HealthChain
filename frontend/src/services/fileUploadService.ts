@@ -134,6 +134,7 @@ export class FileUploadService {
         encrypted_symmetric_key: encryptedSymmetricKey,
         access_control_conditions: accessControlConditions,
         authorized_doctors: authorizedDoctors.map(addr => addr.toLowerCase()),
+        uploaded_by: sessionValidation.user?.id,
         on_chain: false // Set to false since we're using IPFS
       }
 
