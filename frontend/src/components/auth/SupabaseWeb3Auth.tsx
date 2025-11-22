@@ -103,13 +103,14 @@ Issued At: ${new Date().toISOString()}`
         // Update last login timestamp
         await updateLastLogin(existingUser.id)
         
-        // Store auth state in localStorage
+        // Store auth state in localStorage WITH session token
         const authData = {
           wallet: address,
-          user: existingUser,
+          user: existingUser || authResult.user,
+          sessionToken: authResult.session_token, // ← THIS IS THE KEY FIX!
           timestamp: Date.now()
         }
-        console.log('💾 Saving auth to localStorage:', authData)
+        console.log('💾 Saving auth with session token to localStorage:', authData)
         localStorage.setItem('healthchain_auth', JSON.stringify(authData))
         
         // Set authenticated state
@@ -177,13 +178,14 @@ Issued At: ${new Date().toISOString()}`
         // Update last login timestamp
         await updateLastLogin(existingUser.id)
         
-        // Store auth state in localStorage as backup
+        // Store auth state in localStorage WITH session token
         const authData = {
           wallet: address,
-          user: existingUser,
+          user: existingUser || authResult.user,
+          sessionToken: authResult.session_token, // ← THIS IS THE KEY FIX!
           timestamp: Date.now()
         }
-        console.log('💾 Saving auth to localStorage:', authData)
+        console.log('💾 Saving auth with session token to localStorage:', authData)
         localStorage.setItem('healthchain_auth', JSON.stringify(authData))
         
         // Verify it was saved

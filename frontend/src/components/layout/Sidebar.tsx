@@ -26,6 +26,9 @@ type UserRole = "patient" | "doctor" | "admin"
 
 interface SidebarProps {
   role: UserRole
+  isOpen: boolean
+  isMobile: boolean
+  onClose: () => void
 }
 
 const navigationItems = {
@@ -50,7 +53,7 @@ const navigationItems = {
   ],
 }
 
-export function Sidebar({ role }: SidebarProps) {
+export function Sidebar({ role, isOpen, isMobile, onClose }: SidebarProps) {
   const pathname = usePathname()
   const items = navigationItems[role]
   const { isLoggingOut, error, success, logout, resetLogoutState } = useLogout()
@@ -125,7 +128,29 @@ export function Sidebar({ role }: SidebarProps) {
   }
 
   return (
-    <div className="fixed left-0 top-0 z-40 flex h-screen w-64 flex-col border-r border-gray-200 bg-sidebar">
+    <>
+      {/* Mobile Overlay */}
+      {isMobile && isOpen && (
+        <div 
+          className="fixed inset-0 z-30 bg-black bg-opacity-50 lg:hidden"
+          onClick={onClose}
+          aria-hidden="true"
+        />
+      )}
+      
+      {/* Sidebar */}
+      <div 
+        className={cn(
+          "fixed left-0 top-0 z-40 flex h-screen w-64 flex-col border-r border-gray-200 bg-sidebar transition-transform duration-300 ease-in-out",
+          // Responsive positioning
+          isOpen ? "translate-x-0" : "-translate-x-full",
+          // Desktop: always visible, Mobile: toggle
+          "lg:translate-x-0"
+        )}
+        role="navigation"
+        aria-label="Main navigation"
+        aria-expanded={isOpen}
+      >
       {/* Logo/Header */}
       <div className="flex h-16 items-center border-b border-gray-200 px-6">
         <Link href="/" className="flex items-center gap-2">
@@ -138,6 +163,19 @@ export function Sidebar({ role }: SidebarProps) {
             {role === "admin" && "Admin Portal"}
           </span>
         </Link>
+        
+        {/* Mobile Close Button */}
+        {isMobile && (
+          <button
+            onClick={onClose}
+            className="ml-auto p-2 text-gray-500 hover:text-gray-700 lg:hidden"
+            aria-label="Close sidebar"
+          >
+            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        )}
       </div>
 
       {/* Navigation Items */}
@@ -150,6 +188,7 @@ export function Sidebar({ role }: SidebarProps) {
             <Link
               key={item.url}
               href={item.url}
+              onClick={() => isMobile && onClose()} // Close sidebar on mobile after navigation
               className={cn(
                 "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                 isActive
@@ -188,6 +227,7 @@ export function Sidebar({ role }: SidebarProps) {
           </div>
         )}
       </div>
-    </div>
+      </div>
+    </>
   )
 }

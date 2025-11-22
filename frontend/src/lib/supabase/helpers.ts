@@ -8,7 +8,7 @@ export interface User {
   email?: string
   full_name?: string
   role: UserRole
-  verified: boolean
+  profile_complete: boolean
   created_at: string
   updated_at: string
 }
@@ -19,11 +19,22 @@ export interface DoctorProfile {
   license_number?: string
   specialization?: string
   hospital_name?: string
-  phone_number?: string
-  verification_status: 'pending' | 'approved' | 'rejected'
+  verification_status: 'pending' | 'approved' | 'rejected' | 'suspended'
   verification_documents?: any
   verified_at?: string
   verified_by?: string
+  created_at: string
+}
+
+export interface PatientProfile {
+  id: string
+  user_id: string
+  date_of_birth?: string
+  emergency_contact_name?: string
+  emergency_contact_phone?: string
+  has_allergies: boolean
+  has_chronic_conditions: boolean
+  preferred_language: string
   created_at: string
 }
 
@@ -87,22 +98,39 @@ export async function createUser(userData: {
   wallet_address: string
   email?: string
   full_name?: string
+  phone_number?: string
   role: UserRole
 }): Promise<User | null> {
   try {
+    console.log('Creating user with data:', { ...userData, wallet_address: userData.wallet_address.toLowerCase() })
+    
     const { data, error } = await supabase
       .from('users')
       .insert([{
         ...userData,
-        wallet_address: userData.wallet_address.toLowerCase()
+        wallet_address: userData.wallet_address.toLowerCase(),
+        profile_complete: true
       }])
       .select()
       .single()
 
-    if (error) throw error
+    console.log('Supabase response:', { data, error })
+
+    if (error) {
+      console.error('Supabase error details:', {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code
+      })
+      throw error
+    }
+    
+    console.log('User created successfully:', data)
     return data
   } catch (error) {
     console.error('Error creating user:', error)
+    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace')
     return null
   }
 }
@@ -127,13 +155,31 @@ export async function updateUser(
   }
 }
 
+export async function updateLastLogin(userId: string): Promise<boolean> {
+  try {
+    const { error } = await supabase
+      .from('users')
+      .update({ 
+        last_login: new Date().toISOString(),
+        failed_login_attempts: 0 // Reset failed attempts on successful login
+      })
+      .eq('id', userId)
+
+    if (error) throw error
+    console.log('✅ Last login updated for user:', userId)
+    return true
+  } catch (error) {
+    console.error('❌ Error updating last login:', error)
+    return false
+  }
+}
+
 // Doctor Profile Management
 export async function createDoctorProfile(profileData: {
   user_id: string
   license_number?: string
   specialization?: string
   hospital_name?: string
-  phone_number?: string
   verification_documents?: any
 }): Promise<DoctorProfile | null> {
   try {
@@ -167,6 +213,56 @@ export async function getDoctorProfile(userId: string): Promise<DoctorProfile | 
     return data
   } catch (error) {
     console.error('Error fetching doctor profile:', error)
+    return null
+  }
+}
+
+// Patient Profile Management
+export async function createPatientProfile(profileData: {
+  user_id: string
+  date_of_birth?: string
+  emergency_contact_name?: string
+  emergency_contact_phone?: string
+  has_allergies?: boolean
+  has_chronic_conditions?: boolean
+  preferred_language?: string
+}): Promise<PatientProfile | null> {
+  try {
+    const { data, error } = await supabase
+      .from('patient_profiles')
+      .insert([{
+        ...profileData,
+        has_allergies: profileData.has_allergies || false,
+        has_chronic_conditions: profileData.has_chronic_conditions || false,
+        preferred_language: profileData.preferred_language || 'en'
+      }])
+      .select()
+      .single()
+
+    if (error) throw error
+    return data
+  } catch (error) {
+    console.error('Error creating patient profile:', error)
+    return null
+  }
+}
+
+export async function getPatientProfile(userId: string): Promise<PatientProfile | null> {
+  try {
+    const { data, error } = await supabase
+      .from('patient_profiles')
+      .select('*')
+      .eq('user_id', userId)
+      .single()
+
+    if (error) {
+      if (error.code === 'PGRST116') return null
+      throw error
+    }
+
+    return data
+  } catch (error) {
+    console.error('Error fetching patient profile:', error)
     return null
   }
 }
@@ -346,11 +442,11 @@ export async function verifyDoctor(
 
     if (error) throw error
 
-    // Also update user verification status
+    // Also update user profile completion status
     if (status === 'approved') {
       const { error: userError } = await supabase
         .from('users')
-        .update({ verified: true })
+        .update({ profile_complete: true })
         .eq('id', (await supabase
           .from('doctor_profiles')
           .select('user_id')
