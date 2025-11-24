@@ -13,15 +13,16 @@ export const ROUTES = {
   HOME: '/',
   AUTH: '/auth',
   DASHBOARD: '/dashboard',
-  
+
   // Patient routes
   PATIENT: {
     DASHBOARD: '/patient/dashboard',
+    RECORDS: '/patient/records',
     UPLOAD: '/patient/upload',
     REQUESTS: '/patient/requests',
     LOGS: '/patient/logs'
   },
-  
+
   // Doctor routes
   DOCTOR: {
     DASHBOARD: '/doctor/dashboard',
@@ -29,7 +30,7 @@ export const ROUTES = {
     VIEW: '/doctor/view',
     HISTORY: '/doctor/history'
   },
-  
+
   // Admin routes
   ADMIN: {
     DASHBOARD: '/admin/dashboard',

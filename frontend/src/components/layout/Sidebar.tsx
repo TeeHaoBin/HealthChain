@@ -34,7 +34,7 @@ interface SidebarProps {
 const navigationItems = {
   patient: [
     { title: "Dashboard", url: "/patient/dashboard", icon: LayoutDashboard },
-    { title: "My Health Record", url: "/patient/upload", icon: FileText },
+    { title: "My Health Record", url: "/patient/records", icon: FileText },
     { title: "Manage Access", url: "/patient/requests", icon: Shield },
     { title: "Profile", url: "/profile", icon: User },
   ],
@@ -62,10 +62,10 @@ export function Sidebar({ role, isOpen, isMobile, onClose }: SidebarProps) {
     // CRITICAL: Set logout state IMMEDIATELY to prevent race conditions
     console.log('🚨 Sidebar: Setting logout state IMMEDIATELY on button click')
     logoutStateManager.setLoggingOut(true)
-    
+
     try {
       const logoutSuccess = await logout()
-      
+
       if (!logoutSuccess && error) {
         // Show error for a few seconds, then auto-retry or reset
         setTimeout(() => {
@@ -88,7 +88,7 @@ export function Sidebar({ role, isOpen, isMobile, onClose }: SidebarProps) {
         </>
       )
     }
-    
+
     if (success) {
       return (
         <>
@@ -97,7 +97,7 @@ export function Sidebar({ role, isOpen, isMobile, onClose }: SidebarProps) {
         </>
       )
     }
-    
+
     if (error) {
       return (
         <>
@@ -106,7 +106,7 @@ export function Sidebar({ role, isOpen, isMobile, onClose }: SidebarProps) {
         </>
       )
     }
-    
+
     return (
       <>
         <LogOut className="h-5 w-5" />
@@ -119,11 +119,11 @@ export function Sidebar({ role, isOpen, isMobile, onClose }: SidebarProps) {
     if (success) {
       return "text-green-600 hover:bg-green-50 hover:text-green-700"
     }
-    
+
     if (error) {
       return "text-red-600 hover:bg-red-50 hover:text-red-700"
     }
-    
+
     return "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
   }
 
@@ -131,15 +131,15 @@ export function Sidebar({ role, isOpen, isMobile, onClose }: SidebarProps) {
     <>
       {/* Mobile Overlay */}
       {isMobile && isOpen && (
-        <div 
+        <div
           className="fixed inset-0 z-30 bg-black bg-opacity-50 lg:hidden"
           onClick={onClose}
           aria-hidden="true"
         />
       )}
-      
+
       {/* Sidebar */}
-      <div 
+      <div
         className={cn(
           "fixed left-0 top-0 z-40 flex h-screen w-64 flex-col border-r border-gray-200 bg-sidebar transition-transform duration-300 ease-in-out",
           // Responsive positioning
@@ -151,82 +151,82 @@ export function Sidebar({ role, isOpen, isMobile, onClose }: SidebarProps) {
         aria-label="Main navigation"
         aria-expanded={isOpen}
       >
-      {/* Logo/Header */}
-      <div className="flex h-16 items-center border-b border-gray-200 px-6">
-        <Link href="/" className="flex items-center gap-2">
-          {role === "patient" && <FileText className="h-6 w-6 text-blue-600" />}
-          {role === "doctor" && <Stethoscope className="h-6 w-6 text-green-600" />}
-          {role === "admin" && <Shield className="h-6 w-6 text-purple-600" />}
-          <span className="text-lg font-semibold">
-            {role === "patient" && "Patient Portal"}
-            {role === "doctor" && "Doctor Portal"}
-            {role === "admin" && "Admin Portal"}
-          </span>
-        </Link>
-        
-        {/* Mobile Close Button */}
-        {isMobile && (
-          <button
-            onClick={onClose}
-            className="ml-auto p-2 text-gray-500 hover:text-gray-700 lg:hidden"
-            aria-label="Close sidebar"
-          >
-            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        )}
-      </div>
+        {/* Logo/Header */}
+        <div className="flex h-16 items-center border-b border-gray-200 px-6">
+          <Link href="/" className="flex items-center gap-2">
+            {role === "patient" && <FileText className="h-6 w-6 text-blue-600" />}
+            {role === "doctor" && <Stethoscope className="h-6 w-6 text-green-600" />}
+            {role === "admin" && <Shield className="h-6 w-6 text-purple-600" />}
+            <span className="text-lg font-semibold">
+              {role === "patient" && "Patient Portal"}
+              {role === "doctor" && "Doctor Portal"}
+              {role === "admin" && "Admin Portal"}
+            </span>
+          </Link>
 
-      {/* Navigation Items */}
-      <nav className="flex-1 space-y-1 p-4">
-        {items.map((item) => {
-          const Icon = item.icon
-          const isActive = pathname === item.url
-
-          return (
-            <Link
-              key={item.url}
-              href={item.url}
-              onClick={() => isMobile && onClose()} // Close sidebar on mobile after navigation
-              className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                isActive
-                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                  : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-              )}
+          {/* Mobile Close Button */}
+          {isMobile && (
+            <button
+              onClick={onClose}
+              className="ml-auto p-2 text-gray-500 hover:text-gray-700 lg:hidden"
+              aria-label="Close sidebar"
             >
-              <Icon className="h-5 w-5" />
-              {item.title}
-            </Link>
-          )
-        })}
-      </nav>
-
-      {/* Logout Button */}
-      <div className="border-t border-gray-200 p-4">
-        <Button
-          variant="ghost"
-          className={cn(
-            "w-full justify-start gap-3 transition-all duration-200",
-            getLogoutButtonStyles()
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
           )}
-          onClick={handleLogout}
-          disabled={isLoggingOut}
-        >
-          {getLogoutButtonContent()}
-        </Button>
-        
-        {/* Error message display */}
-        {error && (
-          <div className="mt-2 p-2 text-xs text-red-600 bg-red-50 rounded border border-red-200">
-            {error}
-            <div className="mt-1 text-xs text-red-500">
-              Click to retry or wait for auto-reset
+        </div>
+
+        {/* Navigation Items */}
+        <nav className="flex-1 space-y-1 p-4">
+          {items.map((item) => {
+            const Icon = item.icon
+            const isActive = pathname === item.url
+
+            return (
+              <Link
+                key={item.url}
+                href={item.url}
+                onClick={() => isMobile && onClose()} // Close sidebar on mobile after navigation
+                className={cn(
+                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                  isActive
+                    ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                    : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                )}
+              >
+                <Icon className="h-5 w-5" />
+                {item.title}
+              </Link>
+            )
+          })}
+        </nav>
+
+        {/* Logout Button */}
+        <div className="border-t border-gray-200 p-4">
+          <Button
+            variant="ghost"
+            className={cn(
+              "w-full justify-start gap-3 transition-all duration-200",
+              getLogoutButtonStyles()
+            )}
+            onClick={handleLogout}
+            disabled={isLoggingOut}
+          >
+            {getLogoutButtonContent()}
+          </Button>
+
+          {/* Error message display */}
+          {error && (
+            <div className="mt-2 p-2 text-xs text-red-600 bg-red-50 rounded border border-red-200">
+              {error}
+              <div className="mt-1 text-xs text-red-500">
+                Click to retry or wait for auto-reset
+              </div>
             </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
       </div>
     </>
   )
