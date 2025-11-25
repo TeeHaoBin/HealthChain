@@ -26,22 +26,22 @@ export default async function handler(
   try {
     // Get Pinata JWT from server environment (not exposed to client)
     const PINATA_JWT = process.env.PINATA_JWT
-    
+
     if (!PINATA_JWT) {
       console.error('PINATA_JWT not configured in server environment')
-      return res.status(500).json({ 
-        success: false, 
-        error: 'Server configuration error' 
+      return res.status(500).json({
+        success: false,
+        error: 'Server configuration error'
       })
     }
 
     // Get the uploaded file data from request
     const { fileData, fileName, metadata } = req.body
-    
+
     if (!fileData || !fileName) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Missing file data or filename' 
+      return res.status(400).json({
+        success: false,
+        error: 'Missing file data or filename'
       })
     }
 
@@ -49,19 +49,19 @@ export default async function handler(
 
     // Convert base64 back to buffer for upload
     const buffer = Buffer.from(fileData, 'base64')
-    
+
     // Create form data for Pinata v3 API
     const formData = new FormData()
-    
+
     // Add required fields for v3 API
     formData.append('file', new Blob([buffer], { type: 'application/octet-stream' }), fileName)
-    formData.append('network', 'private') // Use private network for healthcare data
-    
+    formData.append('network', 'public') // Use public IPFS for truly decentralized healthcare data
+
     // Add optional name field
     if (fileName) {
       formData.append('name', fileName)
     }
-    
+
     // Add keyvalues metadata (v3 format - flat structure)
     if (metadata) {
       // Convert nested metadata to flat keyvalue pairs for v3 API
@@ -70,7 +70,7 @@ export default async function handler(
         uploadedAt: new Date().toISOString(),
         apiVersion: 'v3'
       }
-      
+
       // Add each keyvalue pair individually (v3 requirement)
       Object.entries(keyvalues).forEach(([key, value]) => {
         if (value !== undefined && value !== null) {
@@ -96,12 +96,12 @@ export default async function handler(
     }
 
     const result = await response.json()
-    
+
     // Handle v3 API response format
     if (!result.data) {
       throw new Error('Invalid response format from Pinata v3 API')
     }
-    
+
     return res.status(200).json({
       success: true,
       ipfsHash: result.data.cid, // v3 uses 'cid' instead of 'IpfsHash'

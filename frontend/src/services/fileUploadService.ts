@@ -24,7 +24,7 @@ export interface FileMetadata {
 }
 
 export class FileUploadService {
-  
+
   async uploadEncryptedFile(
     file: File,
     patientAddress: string,
@@ -33,7 +33,7 @@ export class FileUploadService {
   ): Promise<UploadResult> {
     try {
       console.log('🚀 Starting encrypted file upload...')
-      
+
       // Step 1: Connect to Lit Protocol
       await litClient.connect()
       console.log('✅ Connected to Lit Protocol')
@@ -41,27 +41,27 @@ export class FileUploadService {
       // Step 2: Encrypt the file using Lit Protocol
       console.log('🔒 Encrypting file with Lit Protocol...')
       const encryptionResult = await litClient.encryptFileBinary(file, patientAddress, authorizedDoctors)
-      
+
       // Validate encryption result
       if (!encryptionResult || !encryptionResult.encryptedData || !encryptionResult.encryptedSymmetricKey) {
         throw new Error('Failed to encrypt file - encryption result is invalid')
       }
-      
+
       const {
         encryptedData,
         encryptedSymmetricKey,
         accessControlConditions
       } = encryptionResult
-      
+
       // Additional validation to ensure encryptedData is a valid Blob
       if (!(encryptedData instanceof Blob)) {
         throw new Error('Failed to encrypt file - encrypted data is not a valid Blob')
       }
-      
+
       if (encryptedData.size === 0) {
         throw new Error('Failed to encrypt file - encrypted data is empty')
       }
-      
+
       console.log('✅ File encrypted successfully', {
         originalSize: file.size,
         encryptedSize: encryptedData.size,
@@ -82,7 +82,7 @@ export class FileUploadService {
           dateCreated: new Date().toISOString()
         }
       )
-      
+
       console.log('✅ File uploaded to IPFS:', ipfsHash)
 
       // Step 4: Validate session for database operations
@@ -113,7 +113,7 @@ export class FileUploadService {
 
       // Step 5: Store metadata in Supabase
       console.log('💾 Storing metadata in database...')
-      
+
       // Match your existing database structure
       const fileMetadata = {
         // Use your existing columns
@@ -126,7 +126,7 @@ export class FileUploadService {
         file_size: file.size,
         mime_type: file.type,
         uploaded_at: new Date().toISOString(),
-        
+
         // New columns for encryption (added by our fix)
         file_name: file.name,
         file_type: file.type,
@@ -150,7 +150,7 @@ export class FileUploadService {
       }
 
       console.log('✅ Metadata stored in database')
-      
+
       return {
         success: true,
         ipfsHash,
@@ -182,19 +182,26 @@ export class FileUploadService {
         throw new Error(`Database error: ${error.message}`)
       }
 
-      return data.map(record => ({
-        id: record.id,
-        fileName: record.file_name || record.original_filename,
-        fileType: record.file_type || record.mime_type,
-        fileSize: record.file_size,
-        ipfsHash: record.ipfs_hash,
-        encryptedSymmetricKey: record.encrypted_symmetric_key,
-        accessControlConditions: record.access_control_conditions ? JSON.parse(record.access_control_conditions) : [],
-        patientAddress: record.patient_wallet,
-        authorizedDoctors: record.authorized_doctors || [],
-        uploadedAt: record.uploaded_at,
-        recordType: record.record_type
-      }))
+      return data.map(record => {
+        // Safely parse access control conditions - handle both string and object types
+        const accessControlConditions = typeof record.access_control_conditions === 'string'
+          ? JSON.parse(record.access_control_conditions)
+          : (record.access_control_conditions || [])
+
+        return {
+          id: record.id,
+          fileName: record.file_name || record.original_filename,
+          fileType: record.file_type || record.mime_type,
+          fileSize: record.file_size,
+          ipfsHash: record.ipfs_hash,
+          encryptedSymmetricKey: record.encrypted_symmetric_key,
+          accessControlConditions,
+          patientAddress: record.patient_wallet,
+          authorizedDoctors: record.authorized_doctors || [],
+          uploadedAt: record.uploaded_at,
+          recordType: record.record_type
+        }
+      })
 
     } catch (error) {
       console.error('❌ Failed to get patient files:', error)
@@ -236,6 +243,168 @@ export class FileUploadService {
       console.error('❌ Failed to grant doctor access:', error)
       return false
     }
+  }
+
+  // Retrieve and decrypt a file
+  async retrieveFile(fileId: string): Promise<Blob> {
+    try {
+      console.log('📥 Starting file retrieval for:', fileId)
+
+      // 1. Fetch metadata from Supabase
+      const { data: record, error } = await supabase
+        .from('health_records')
+        .select('*')
+        .eq('id', fileId)
+        .single()
+
+      if (error || !record) {
+        throw new Error(`Record not found: ${error?.message || 'Unknown error'}`)
+      }
+
+      console.log('📄 Metadata retrieved:', {
+        fileName: record.file_name,
+        ipfsHash: record.ipfs_hash,
+        hasKey: !!record.encrypted_symmetric_key
+      })
+
+      if (!record.ipfs_hash) {
+        throw new Error('No IPFS hash found for this record')
+      }
+
+      // 2. Fetch encrypted content from Pinata with gateway fallback
+      console.log('☁️ Fetching from IPFS...')
+      const encryptedBlob = await this.fetchFromIPFSWithFallback(record.ipfs_hash)
+
+      if (!encryptedBlob) {
+        throw new Error('Failed to fetch file from all available IPFS gateways')
+      }
+
+      console.log('📦 Encrypted blob retrieved:', {
+        size: encryptedBlob.size,
+        type: encryptedBlob.type
+      })
+
+      // 3. Decrypt using Lit Protocol
+      if (!record.encrypted_symmetric_key) {
+        // If no key, assume it's not encrypted (legacy or public)
+        console.warn('⚠️ No encryption key found, returning raw file')
+        return encryptedBlob
+      }
+
+      console.log('🔓 Decrypting file...')
+      await litClient.connect()
+
+      const accessControlConditions = typeof record.access_control_conditions === 'string'
+        ? JSON.parse(record.access_control_conditions)
+        : record.access_control_conditions
+
+      // CRITICAL FIX: Convert blob to string for decryption
+      // The encryption process creates a string ciphertext, but IPFS returns it as a blob
+      console.log('📝 Converting encrypted blob to string for decryption...')
+      const encryptedString = await encryptedBlob.text()
+
+      console.log('🔓 Starting decryption with Lit Protocol...', {
+        ciphertextLength: encryptedString.length,
+        hasAccessConditions: !!accessControlConditions,
+        conditionsCount: accessControlConditions?.length || 0
+      })
+
+      const decryptedFile = await litClient.decryptFile(
+        encryptedString,  // Pass string instead of blob
+        record.encrypted_symmetric_key,
+        accessControlConditions
+      )
+
+      // Handle different return types from decryptFile
+      if (decryptedFile instanceof Blob) {
+        return decryptedFile
+      } else if (typeof decryptedFile === 'string') {
+        return new Blob([decryptedFile], { type: record.mime_type || 'application/octet-stream' })
+      } else {
+        return new Blob([decryptedFile], { type: record.mime_type || 'application/octet-stream' })
+      }
+
+    } catch (error) {
+      console.error('❌ Failed to retrieve file:', error)
+      throw error
+    }
+  }
+
+  // Helper method: Fetch from IPFS using public gateways with fallback for decentralization
+  private async fetchFromIPFSWithFallback(ipfsHash: string): Promise<Blob | null> {
+    // For PUBLIC IPFS files, we can use multiple gateways for true decentralization
+    // This provides resilience and aligns with decentralized EHR project goals
+
+    // Get dedicated gateway URL from environment (optional, used as primary if available)
+    const dedicatedGateway = process.env.NEXT_PUBLIC_PINATA_GATEWAY
+
+    // Define gateway priority list for PUBLIC IPFS (truly decentralized!)
+    const gateways = [
+      // Primary: Dedicated Pinata gateway (fastest, if configured)
+      dedicatedGateway ? {
+        url: `https://${dedicatedGateway}/ipfs/${ipfsHash}`,
+        name: 'Pinata Dedicated Gateway',
+        timeout: 10000
+      } : null,
+      // Fallback 1: Default Pinata public gateway
+      {
+        url: `https://gateway.pinata.cloud/ipfs/${ipfsHash}`,
+        name: 'Pinata Public Gateway',
+        timeout: 10000
+      },
+      // Fallback 2: Cloudflare IPFS gateway (fast, reliable CDN)
+      {
+        url: `https://cloudflare-ipfs.com/ipfs/${ipfsHash}`,
+        name: 'Cloudflare IPFS Gateway',
+        timeout: 15000
+      },
+      // Fallback 3: Public IPFS.io gateway (original IPFS gateway)
+      {
+        url: `https://ipfs.io/ipfs/${ipfsHash}`,
+        name: 'IPFS.io Public Gateway',
+        timeout: 20000
+      }
+    ].filter(Boolean) as Array<{ url: string; name: string; timeout: number }>
+
+    let lastError: Error | null = null
+
+    for (const gateway of gateways) {
+      try {
+        console.log(`🔄 Attempting to fetch from ${gateway.name}...`)
+
+        const response = await fetch(gateway.url, {
+          // Add timeout per gateway (faster gateways have shorter timeouts)
+          signal: AbortSignal.timeout(gateway.timeout),
+          credentials: 'omit',
+          mode: 'cors'
+        })
+
+        if (response.ok) {
+          const blob = await response.blob()
+          console.log(`✅ Successfully fetched from ${gateway.name}`, {
+            size: blob.size,
+            type: blob.type
+          })
+          return blob
+        } else {
+          const errorMsg = `${gateway.name} returned ${response.status}: ${response.statusText}`
+          console.warn(`⚠️ ${errorMsg}`)
+          lastError = new Error(errorMsg)
+        }
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : 'Unknown error'
+        console.warn(`⚠️ Failed to fetch from ${gateway.name}:`, errorMsg)
+        lastError = error instanceof Error ? error : new Error(errorMsg)
+        // Continue to next gateway - this is the beauty of decentralization!
+      }
+    }
+
+    // All gateways failed
+    console.error('❌ All IPFS gateways failed. Last error:', lastError)
+    console.error('💡 This might indicate a network issue or the file may not be propagated yet.')
+    console.error('💡 For public IPFS, files should be accessible within 1-2 minutes of upload.')
+
+    return null
   }
 }
 

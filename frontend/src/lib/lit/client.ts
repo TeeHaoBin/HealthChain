@@ -61,7 +61,7 @@ export class LitProtocolClient {
       authorizedDoctors.forEach((doctorAddress) => {
         // Add OR operator before each doctor condition
         conditions.push({ operator: "or" } as any);
-        
+
         // Add doctor condition
         conditions.push({
           contractAddress: "",
@@ -91,8 +91,8 @@ export class LitProtocolClient {
     accessControlConditions: any[];
   }> {
     // Convert ArrayBuffer to File object and use the new encryption method
-    const file = new File([fileData], 'encrypted-file', { 
-      type: 'application/octet-stream' 
+    const file = new File([fileData], 'encrypted-file', {
+      type: 'application/octet-stream'
     });
 
     return this.encryptFileBinary(file, patientAddress, authorizedDoctors);
@@ -117,15 +117,15 @@ export class LitProtocolClient {
       if (!file) {
         throw new Error('File is required for encryption');
       }
-      
+
       if (!patientAddress || patientAddress.trim().length === 0) {
         throw new Error('Patient address is required for encryption');
       }
-      
+
       if (file.size === 0) {
         throw new Error('Cannot encrypt empty file');
       }
-      
+
       if (file.size > 100 * 1024 * 1024) { // 100MB limit
         throw new Error('File too large for encryption (max 100MB)');
       }
@@ -155,14 +155,14 @@ export class LitProtocolClient {
       // Convert file to base64 for encryption
       const fileBuffer = await file.arrayBuffer();
       const fileUint8Array = new Uint8Array(fileBuffer);
-      
+
       // Convert to base64 string
       let binary = '';
       for (let i = 0; i < fileUint8Array.length; i++) {
         binary += String.fromCharCode(fileUint8Array[i]);
       }
       const base64Data = btoa(binary);
-      
+
       // Create file data object with metadata
       const fileDataToEncrypt = JSON.stringify({
         name: file.name,
@@ -179,22 +179,22 @@ export class LitProtocolClient {
       // Use the correct v6 API for encryption
       // First get the auth signature
       const authSig = await this.getAuthSig();
-      
+
       console.log('🔑 Auth signature obtained, preparing data for encryption...');
-      
+
       // Convert string to Uint8Array for encryption
       const encoder = new TextEncoder();
       const dataToEncryptBytes = encoder.encode(fileDataToEncrypt);
-      
+
       console.log('📦 Data prepared for encryption:', {
         originalLength: fileDataToEncrypt.length,
         bytesLength: dataToEncryptBytes.length,
         dataType: typeof dataToEncryptBytes
       });
-      
+
       // Encrypt the file data bytes
       const { ciphertext, dataToEncryptHash } = await this.litNodeClient.encrypt({
-        accessControlConditions,
+        accessControlConditions: accessControlConditions as any,
         authSig,
         chain: this.chain,
         dataToEncrypt: dataToEncryptBytes
@@ -220,7 +220,7 @@ export class LitProtocolClient {
       };
     } catch (error) {
       console.error("❌ Failed to encrypt file binary:", error);
-      
+
       // Provide more specific error messages
       if (error instanceof Error) {
         if (error.message.includes('network') || error.message.includes('connection')) {
@@ -233,48 +233,37 @@ export class LitProtocolClient {
           throw new Error(`Encryption failed: ${error.message}`);
         }
       } else {
-        throw new Error('Encryption failed: Unknown error occurred');
+        throw new Error('Encryption failed: Unknown error');
       }
     }
   }
 
-  // Get authentication signature from wallet
+  // Get authentication signature from wallet using Lit Protocol's built-in SIWE helper
   async getAuthSig(): Promise<any> {
     try {
-      // In v6, we need to check if wallet is available and get auth sig
-      if (typeof window !== 'undefined' && window.ethereum) {
-        const provider = window.ethereum;
-        
-        // Request account access
-        const accounts = await provider.request({ method: 'eth_requestAccounts' });
-        if (!accounts || accounts.length === 0) {
-          throw new Error('No wallet accounts available');
-        }
-        
-        const address = accounts[0];
-        
-        // Create a simple auth signature for Lit Protocol v6
-        const message = `Lit Protocol Authentication\nWallet: ${address}\nTime: ${Date.now()}`;
-        
-        const signature = await provider.request({
-          method: 'personal_sign',
-          params: [message, address]
-        });
-        
-        // Return the auth signature in the format expected by Lit Protocol
-        return {
-          sig: signature,
-          derivedVia: "web3.eth.personal.sign",
-          signedMessage: message,
-          address: address.toLowerCase()
-        };
-      } else {
-        throw new Error('No wallet provider found. Please connect your wallet.');
-      }
+      // Import Lit's official auth helper
+      const { checkAndSignAuthMessage } = await import('@lit-protocol/lit-node-client');
+
+      // Use Lit's official SIWE generator - this ensures proper EIP-4361 compliance
+      // Each user (patient, doctor) signs with their own wallet when accessing data
+      const authSig = await checkAndSignAuthMessage({
+        chain: this.chain as any,
+        nonce: await this.generateNonce(), // Required parameter
+        // Optional: Add resources if needed for access control
+        // resources: [],
+      });
+
+      console.log("✅ Generated auth signature using Lit Protocol's SIWE helper");
+      return authSig;
     } catch (error) {
       console.error("❌ Failed to get auth signature:", error);
       throw new Error("Failed to authenticate with wallet");
     }
+  }
+
+  // Generate a random nonce for SIWE messages
+  private async generateNonce(): Promise<string> {
+    return Math.floor(Math.random() * 1000000000).toString();
   }
 
   // Decrypt file data - supports both new string format and legacy formats
@@ -299,8 +288,8 @@ export class LitProtocolClient {
       // For our new string-based encryption format
       if (typeof encryptedData === 'string') {
         console.log('📝 Decrypting string-based encrypted file...');
-        
-        const decryptedBytes = await this.litNodeClient.decrypt({
+
+        const decryptResponse = await this.litNodeClient.decrypt({
           accessControlConditions,
           ciphertext: encryptedData,
           dataToEncryptHash: encryptedSymmetricKey,
@@ -309,8 +298,9 @@ export class LitProtocolClient {
         });
 
         console.log('📝 Converting decrypted bytes to string...');
-        
-        // Convert decrypted bytes back to string
+
+        // Extract decrypted data from response object (Lit Protocol v6 format)
+        const decryptedBytes = decryptResponse.decryptedData;
         const decoder = new TextDecoder();
         const decryptedString = decoder.decode(decryptedBytes);
 
@@ -318,7 +308,7 @@ export class LitProtocolClient {
 
         // Parse the decrypted JSON to get file metadata and data
         const fileData = JSON.parse(decryptedString);
-        
+
         // Convert base64 back to binary
         const binaryString = atob(fileData.data);
         const bytes = new Uint8Array(binaryString.length);
@@ -328,7 +318,7 @@ export class LitProtocolClient {
 
         // Create blob with original file type
         const blob = new Blob([bytes], { type: fileData.type || "application/octet-stream" });
-        
+
         console.log('✅ File decryption completed successfully', {
           fileName: fileData.name,
           fileType: fileData.type,
@@ -340,11 +330,11 @@ export class LitProtocolClient {
       } else if (encryptedData instanceof Blob) {
         // Handle blob-based encryption (if any legacy data exists)
         console.log('📦 Decrypting blob-based encrypted file...');
-        
+
         // Convert blob to string first
         const blobText = await encryptedData.text();
-        
-        const decryptedBytes = await this.litNodeClient.decrypt({
+
+        const decryptResponse = await this.litNodeClient.decrypt({
           accessControlConditions,
           ciphertext: blobText,
           dataToEncryptHash: encryptedSymmetricKey,
@@ -353,8 +343,9 @@ export class LitProtocolClient {
         });
 
         console.log('📝 Converting decrypted bytes to string...');
-        
-        // Convert decrypted bytes back to string
+
+        // Extract decrypted data from response object (Lit Protocol v6 format)
+        const decryptedBytes = decryptResponse.decryptedData;
         const decoder = new TextDecoder();
         const decryptedString = decoder.decode(decryptedBytes);
 
