@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useAccount } from "wagmi"
 import { format } from "date-fns"
-import { FileText, Calendar, Shield, ExternalLink, Search, KeyRound, File } from "lucide-react"
+import { FileText, Calendar, Shield, ExternalLink, Search, KeyRound, File, User } from "lucide-react"
 
 import RoleGuard from '@/components/auth/RoleGuard'
 import { DashboardLayout } from '@/components/layout/DashboardLayout'
@@ -18,7 +18,7 @@ import WalletConnect from "@/components/auth/WalletConnect"
 
 export default function DoctorDocumentsPage() {
     const { isConnected, address } = useAccount()
-    const [records, setRecords] = useState<FileMetadata[]>([])
+    const [files, setFiles] = useState<FileMetadata[]>([])
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
     const [searchTerm, setSearchTerm] = useState("")
@@ -26,7 +26,7 @@ export default function DoctorDocumentsPage() {
     const [viewingId, setViewingId] = useState<string | null>(null)
 
     useEffect(() => {
-        async function fetchRecords() {
+        async function fetchData() {
             if (!isConnected || !address) {
                 setLoading(false)
                 return
@@ -34,31 +34,32 @@ export default function DoctorDocumentsPage() {
 
             try {
                 setLoading(true)
+                // Use fileUploadService to get files where doctor is in authorized_doctors array
                 const data = await fileUploadService.getDoctorAccessibleFiles(address)
-                setRecords(data)
+                setFiles(data || [])
                 setError(null)
             } catch (err) {
-                console.error("Failed to fetch records:", err)
-                setError("Failed to load accessible documents. Please try again.")
+                console.error("Failed to fetch data:", err)
+                setError("Failed to load documents. Please try again.")
             } finally {
                 setLoading(false)
             }
         }
 
-        fetchRecords()
+        fetchData()
     }, [isConnected, address])
 
-    const handleViewRecord = async (record: FileMetadata) => {
+    const handleViewRecord = async (file: FileMetadata) => {
         try {
-            setViewingId(record.id)
-            const blob = await fileUploadService.retrieveFile(record.id)
+            setViewingId(file.id)
+            const blob = await fileUploadService.retrieveFile(file.id)
 
-            // Create object URL and open in new tab
+            // Create download/view URL
             const url = URL.createObjectURL(blob)
             window.open(url, '_blank')
 
-            // Clean up object URL after a delay to allow browser to load it
-            setTimeout(() => URL.revokeObjectURL(url), 1000)
+            // Cleanup after a delay
+            setTimeout(() => URL.revokeObjectURL(url), 60000)
         } catch (err) {
             console.error("Failed to view record:", err)
             alert("Failed to decrypt and view record. Please try again.")
@@ -67,24 +68,45 @@ export default function DoctorDocumentsPage() {
         }
     }
 
-    const filteredRecords = records.filter(record => {
-        const matchesSearch = record.fileName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            record.recordType.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            record.patientAddress.toLowerCase().includes(searchTerm.toLowerCase())
-        const matchesType = filterType === "all" || record.recordType === filterType
+    // Helper function to check if file type matches filter
+    const matchesFileType = (mimeType: string, filter: string): boolean => {
+        if (filter === "all") return true
+
+        const normalizedMime = mimeType.toLowerCase()
+        switch (filter) {
+            case "PDF":
+                return normalizedMime.includes("pdf")
+            case "DICOM":
+                return normalizedMime.includes("dicom")
+            case "Image":
+                return normalizedMime.startsWith("image/")
+            default:
+                return true
+        }
+    }
+
+    const filteredFiles = files.filter(file => {
+        const matchesSearch =
+            file.fileName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            file.fileType.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            file.patientAddress.toLowerCase().includes(searchTerm.toLowerCase())
+
+        const matchesType = matchesFileType(file.fileType, filterType)
         return matchesSearch && matchesType
     })
 
-    const getFileIcon = () => {
-        return <FileText className="h-8 w-8 text-blue-500" />
-    }
-
-    const formatFileSize = (bytes: number) => {
-        if (bytes === 0) return '0 Bytes'
-        const k = 1024
-        const sizes = ['Bytes', 'KB', 'MB', 'GB']
-        const i = Math.floor(Math.log(bytes) / Math.log(k))
-        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+    const getFileTypeBadge = (mimeType: string) => {
+        const normalizedMime = mimeType.toLowerCase()
+        if (normalizedMime.includes("pdf")) {
+            return <Badge className="bg-red-100 text-red-800 hover:bg-red-100">PDF</Badge>
+        }
+        if (normalizedMime.includes("dicom")) {
+            return <Badge className="bg-purple-100 text-purple-800 hover:bg-purple-100">DICOM</Badge>
+        }
+        if (normalizedMime.startsWith("image/")) {
+            return <Badge className="bg-green-100 text-green-800 hover:bg-green-100">Image</Badge>
+        }
+        return <Badge variant="secondary">{mimeType.split('/').pop()}</Badge>
     }
 
     return (
@@ -135,9 +157,9 @@ export default function DoctorDocumentsPage() {
                                 <Tabs defaultValue="all" value={filterType} onValueChange={setFilterType} className="w-full sm:w-auto">
                                     <TabsList>
                                         <TabsTrigger value="all">All</TabsTrigger>
-                                        <TabsTrigger value="lab-result">Labs</TabsTrigger>
-                                        <TabsTrigger value="prescription">Rx</TabsTrigger>
-                                        <TabsTrigger value="imaging">Imaging</TabsTrigger>
+                                        <TabsTrigger value="PDF">PDF</TabsTrigger>
+                                        <TabsTrigger value="DICOM">DICOM</TabsTrigger>
+                                        <TabsTrigger value="Image">Image</TabsTrigger>
                                     </TabsList>
                                 </Tabs>
                             </div>
@@ -166,7 +188,7 @@ export default function DoctorDocumentsPage() {
                                         Try Again
                                     </Button>
                                 </Card>
-                            ) : filteredRecords.length === 0 ? (
+                            ) : filteredFiles.length === 0 ? (
                                 <Card className="p-12 text-center border-dashed">
                                     <div className="mx-auto h-12 w-12 bg-gray-100 rounded-full flex items-center justify-center mb-4">
                                         <File className="h-6 w-6 text-gray-400" />
@@ -175,7 +197,7 @@ export default function DoctorDocumentsPage() {
                                     <p className="text-gray-500 mb-6">
                                         {searchTerm || filterType !== 'all'
                                             ? "Try adjusting your search or filters"
-                                            : "No patients have shared documents with you yet"}
+                                            : "No patients have granted you access to documents yet"}
                                     </p>
                                     {(searchTerm || filterType !== 'all') && (
                                         <Button variant="outline" onClick={() => { setSearchTerm(""); setFilterType("all") }}>
@@ -185,27 +207,25 @@ export default function DoctorDocumentsPage() {
                                 </Card>
                             ) : (
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                    {filteredRecords.map((record) => (
-                                        <Card key={record.id} className="hover:shadow-md transition-shadow duration-200">
+                                    {filteredFiles.map((file) => (
+                                        <Card key={file.id} className="hover:shadow-md transition-shadow duration-200">
                                             <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
                                                 <div className="flex items-center gap-3">
                                                     <div className="p-2 bg-blue-50 rounded-lg">
-                                                        {getFileIcon(record.recordType)}
+                                                        <FileText className="h-8 w-8 text-blue-500" />
                                                     </div>
                                                     <div>
-                                                        <Badge variant="secondary" className="mb-1 capitalize">
-                                                            {record.recordType.replace('-', ' ')}
-                                                        </Badge>
+                                                        {getFileTypeBadge(file.fileType)}
                                                     </div>
                                                 </div>
                                                 <Button
                                                     variant="ghost"
                                                     size="sm"
                                                     className="text-gray-400 hover:text-blue-600"
-                                                    onClick={() => handleViewRecord(record)}
-                                                    disabled={viewingId === record.id}
+                                                    onClick={() => handleViewRecord(file)}
+                                                    disabled={viewingId === file.id}
                                                 >
-                                                    {viewingId === record.id ? (
+                                                    {viewingId === file.id ? (
                                                         <span className="animate-spin">⌛</span>
                                                     ) : (
                                                         <ExternalLink className="h-4 w-4" />
@@ -213,20 +233,20 @@ export default function DoctorDocumentsPage() {
                                                 </Button>
                                             </CardHeader>
                                             <CardContent className="pt-4">
-                                                <CardTitle className="text-base font-semibold line-clamp-1 mb-1" title={record.fileName}>
-                                                    {record.fileName}
+                                                <CardTitle className="text-base font-semibold line-clamp-1 mb-1" title={file.fileName}>
+                                                    {file.fileName}
                                                 </CardTitle>
                                                 <div className="text-sm text-gray-600 flex flex-col gap-1 text-xs">
                                                     <div className="flex items-center gap-2">
                                                         <Calendar className="h-3 w-3" />
-                                                        {format(new Date(record.uploadedAt), 'MMM d, yyyy')}
+                                                        {format(new Date(file.uploadedAt), 'MMM d, yyyy')}
                                                         <span className="text-gray-300">|</span>
-                                                        <span>{formatFileSize(record.fileSize)}</span>
+                                                        <span>{file.recordType}</span>
                                                     </div>
                                                     <div className="flex items-center gap-2 text-gray-500">
-                                                        <span className="font-medium text-xs">Patient:</span>
-                                                        <span className="truncate" title={record.patientAddress}>
-                                                            {record.patientAddress.slice(0, 6)}...{record.patientAddress.slice(-4)}
+                                                        <User className="h-3 w-3" />
+                                                        <span className="truncate" title={file.patientAddress}>
+                                                            {file.patientAddress.slice(0, 6)}...{file.patientAddress.slice(-4)}
                                                         </span>
                                                     </div>
                                                 </div>
@@ -234,7 +254,9 @@ export default function DoctorDocumentsPage() {
                                             <CardFooter className="pt-0">
                                                 <div className="w-full flex items-center gap-2 text-xs text-gray-500 bg-gray-50 p-2 rounded">
                                                     <Shield className="h-3 w-3 text-green-600" />
-                                                    <span className="truncate">Encrypted & Secure</span>
+                                                    <span className="truncate">
+                                                        Access Granted
+                                                    </span>
                                                 </div>
                                             </CardFooter>
                                         </Card>
