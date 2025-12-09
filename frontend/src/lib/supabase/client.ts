@@ -3,6 +3,10 @@ import { createClient } from '@supabase/supabase-js'
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error("Supabase environment variables are missing!")
+}
+
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
 // Helper functions for common database operations
@@ -14,7 +18,7 @@ export const dbOperations = {
       .insert([userData])
       .select()
       .single()
-    
+
     if (error) throw error
     return data
   },
@@ -25,7 +29,7 @@ export const dbOperations = {
       .select('*')
       .eq('wallet_address', walletAddress)
       .single()
-    
+
     if (error && error.code !== 'PGRST116') throw error
     return data
   },
@@ -37,7 +41,7 @@ export const dbOperations = {
       .eq('id', userId)
       .select()
       .single()
-    
+
     if (error) throw error
     return data
   },
@@ -45,24 +49,115 @@ export const dbOperations = {
   // EHR operations
   async createEHRRecord(recordData: any) {
     const { data, error } = await supabase
-      .from('ehr_records')
+      .from('health_records')
       .insert([recordData])
       .select()
       .single()
-    
+
     if (error) throw error
     return data
   },
 
   async getPatientRecords(patientId: string) {
     const { data, error } = await supabase
-      .from('ehr_records')
-      .select('*')
-      .eq('patient_id', patientId)
+      .from('health_records')
+      .select('*, patient_id:patient_wallet')
+      .eq('patient_wallet', patientId)
       .order('created_at', { ascending: false })
-    
+
     if (error) throw error
     return data
+  },
+
+  async searchRecords(patientWallet: string) {
+    const { data, error } = await supabase
+      .from('health_records')
+      .select('*, patient_id:patient_wallet')
+      .ilike('patient_wallet', patientWallet)
+      .order('created_at', { ascending: false })
+      .limit(50)
+
+    if (error) {
+      console.error("Supabase search error:", error)
+      throw error
+    }
+    return data
+  },
+
+  // Get records with permission status for a specific doctor
+  async getRecordsWithPermissions(patientWallet: string, doctorWallet: string) {
+    console.log('[getRecordsWithPermissions] Called with:', { patientWallet, doctorWallet })
+
+    // Get all patient records (includes authorized_doctors array)
+    const { data: records, error: recordsError } = await supabase
+      .from('health_records')
+      .select('*, patient_id:patient_wallet, authorized_doctors')
+      .ilike('patient_wallet', patientWallet)
+      .order('created_at', { ascending: false })
+      .limit(50)
+
+    if (recordsError) {
+      console.error("Supabase records error:", recordsError)
+      throw recordsError
+    }
+
+    console.log('[getRecordsWithPermissions] Records found:', records?.length || 0)
+    console.log('[getRecordsWithPermissions] Sample record authorized_doctors:', records?.[0]?.authorized_doctors)
+
+    if (!records || records.length === 0) {
+      return []
+    }
+
+    // Get pending access requests for this doctor-patient pair
+    const { data: requests, error: reqError } = await supabase
+      .from('access_requests')
+      .select('*')
+      .eq('patient_wallet', patientWallet)
+      .eq('doctor_wallet', doctorWallet)
+      .eq('status', 'sent')
+
+    console.log('[getRecordsWithPermissions] Pending requests:', requests, reqError)
+
+    // Build a set of record IDs that are pending
+    const pendingRecordIds = new Set<string>()
+    if (requests) {
+      requests.forEach(r => {
+        if (r.requested_record_ids && Array.isArray(r.requested_record_ids)) {
+          r.requested_record_ids.forEach((id: string) => pendingRecordIds.add(id))
+        }
+      })
+    }
+
+    console.log('[getRecordsWithPermissions] Pending IDs:', [...pendingRecordIds])
+
+    // Map records with their permission status
+    // Check if doctorWallet is in the record's authorized_doctors array
+    const result = records.map(record => {
+      const authorizedDoctors = record.authorized_doctors || []
+      const isGranted = Array.isArray(authorizedDoctors) &&
+        authorizedDoctors.some((doc: string) =>
+          doc.toLowerCase() === doctorWallet.toLowerCase()
+        )
+      const isPending = pendingRecordIds.has(record.id)
+
+      return {
+        ...record,
+        permissionStatus: isGranted
+          ? 'granted'
+          : isPending
+            ? 'pending'
+            : 'none'
+      }
+    })
+
+    console.log('[getRecordsWithPermissions] Results with status:', result.map(r => ({
+      id: r.id,
+      title: r.title,
+      status: r.permissionStatus,
+      authorizedDoctors: r.authorized_doctors
+    })))
+
+    return result
   },
 
   // Access request operations
@@ -72,25 +167,25 @@ export const dbOperations = {
       .insert([requestData])
       .select()
       .single()
-    
+
     if (error) throw error
     return data
   },
 
   async getAccessRequests(userId: string, userRole: string) {
     const column = userRole === 'patient' ? 'patient_id' : 'doctor_id'
-    
+
     const { data, error } = await supabase
       .from('access_requests')
       .select(`
         *,
         doctor:users!doctor_id(*),
         patient:users!patient_id(*),
-        record:ehr_records(*)
+        record:health_records(*)
       `)
       .eq(column, userId)
       .order('requested_at', { ascending: false })
-    
+
     if (error) throw error
     return data
   },
@@ -98,14 +193,14 @@ export const dbOperations = {
   async updateAccessRequest(requestId: string, status: string, respondedAt?: string) {
     const { data, error } = await supabase
       .from('access_requests')
-      .update({ 
-        status, 
-        responded_at: respondedAt || new Date().toISOString() 
+      .update({
+        status,
+        responded_at: respondedAt || new Date().toISOString()
       })
       .eq('id', requestId)
       .select()
       .single()
-    
+
     if (error) throw error
     return data
   }

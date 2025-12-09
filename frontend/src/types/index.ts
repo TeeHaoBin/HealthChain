@@ -10,7 +10,7 @@ export interface User {
   verified: boolean
   created_at: string
   updated_at: string
-  
+
   // Doctor-specific fields
   license_number?: string
   specialization?: string
@@ -29,6 +29,7 @@ export interface EHRRecord {
   created_at: string
   updated_at: string
   tags: string[]
+  permissionStatus?: 'granted' | 'pending' | 'none'
 }
 
 export interface AccessRequest {
@@ -41,7 +42,7 @@ export interface AccessRequest {
   requested_at: string
   responded_at?: string
   expires_at?: string
-  
+
   // Populated fields
   doctor?: User
   patient?: User
@@ -57,7 +58,7 @@ export interface AccessLog {
   ip_address: string
   user_agent: string
   accessed_at: string
-  
+
   // Populated fields
   accessor?: User
   patient?: User
