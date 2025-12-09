@@ -32,7 +32,7 @@ function PermissionBadge({ status }: { status?: 'granted' | 'pending' | 'none' }
         return (
             <Badge className="bg-amber-100 text-amber-700 border-amber-200 gap-1">
                 <Clock className="h-3 w-3" />
-                Pending Approval
+                Pending
             </Badge>
         )
     }

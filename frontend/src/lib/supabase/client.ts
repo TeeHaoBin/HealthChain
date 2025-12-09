@@ -172,19 +172,14 @@ export const dbOperations = {
     return data
   },
 
-  async getAccessRequests(userId: string, userRole: string) {
-    const column = userRole === 'patient' ? 'patient_id' : 'doctor_id'
+  async getAccessRequests(walletAddress: string, userRole: string) {
+    const column = userRole === 'patient' ? 'patient_wallet' : 'doctor_wallet'
 
     const { data, error } = await supabase
       .from('access_requests')
-      .select(`
-        *,
-        doctor:users!doctor_id(*),
-        patient:users!patient_id(*),
-        record:health_records(*)
-      `)
-      .eq(column, userId)
-      .order('requested_at', { ascending: false })
+      .select('*')
+      .eq(column, walletAddress)
+      .order('created_at', { ascending: false })
 
     if (error) throw error
     return data

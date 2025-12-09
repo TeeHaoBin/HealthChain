@@ -54,22 +54,25 @@ export interface HealthRecord {
 
 export interface AccessRequest {
   id: string
-  patient_id: string
-  doctor_id: string
+  patient_wallet: string
+  doctor_wallet: string
+  requested_record_ids?: string[]
   purpose: string
-  urgency: 'low' | 'medium' | 'high'
-  status: 'pending' | 'approved' | 'denied' | 'revoked'
-  requested_at: string
-  expires_at?: string
+  urgency?: 'routine' | 'urgent' | 'emergency'
+  status: 'draft' | 'sent' | 'approved' | 'denied' | 'expired' | 'revoked'
+  patient_response?: string
+  denial_reason?: string
+  created_at?: string
+  sent_at?: string
   responded_at?: string
-  response_message?: string
+  expires_at?: string
 }
 
 // User Management
 export async function getUserByWallet(walletAddress: string): Promise<User | null> {
   try {
     console.log('Searching for wallet address:', walletAddress?.toLowerCase())
-    
+
     const { data, error } = await supabase
       .from('users')
       .select('*')
@@ -103,7 +106,7 @@ export async function createUser(userData: {
 }): Promise<User | null> {
   try {
     console.log('Creating user with data:', { ...userData, wallet_address: userData.wallet_address.toLowerCase() })
-    
+
     const { data, error } = await supabase
       .from('users')
       .insert([{
@@ -125,7 +128,7 @@ export async function createUser(userData: {
       })
       throw error
     }
-    
+
     console.log('User created successfully:', data)
     return data
   } catch (error) {
@@ -136,7 +139,7 @@ export async function createUser(userData: {
 }
 
 export async function updateUser(
-  walletAddress: string, 
+  walletAddress: string,
   updates: Partial<User>
 ): Promise<User | null> {
   try {
@@ -159,7 +162,7 @@ export async function updateLastLogin(userId: string): Promise<boolean> {
   try {
     const { error } = await supabase
       .from('users')
-      .update({ 
+      .update({
         last_login: new Date().toISOString(),
         failed_login_attempts: 0 // Reset failed attempts on successful login
       })
@@ -311,21 +314,15 @@ export async function createHealthRecord(recordData: {
 }
 
 // Access Request Management
-export async function getAccessRequests(userId: string, userRole: UserRole): Promise<AccessRequest[]> {
+export async function getAccessRequests(walletAddress: string, userRole: UserRole): Promise<AccessRequest[]> {
   try {
-    let query = supabase.from('access_requests').select(`
-      *,
-      patient:patient_id(full_name, email),
-      doctor:doctor_id(full_name, email)
-    `)
+    const column = userRole === 'patient' ? 'patient_wallet' : 'doctor_wallet'
 
-    if (userRole === 'patient') {
-      query = query.eq('patient_id', userId)
-    } else if (userRole === 'doctor') {
-      query = query.eq('doctor_id', userId)
-    }
-
-    const { data, error } = await query.order('requested_at', { ascending: false })
+    const { data, error } = await supabase
+      .from('access_requests')
+      .select('*')
+      .eq(column, walletAddress)
+      .order('created_at', { ascending: false })
 
     if (error) throw error
     return data || []
@@ -336,10 +333,13 @@ export async function getAccessRequests(userId: string, userRole: UserRole): Pro
 }
 
 export async function createAccessRequest(requestData: {
-  patient_id: string
-  doctor_id: string
+  patient_wallet: string
+  doctor_wallet: string
+  requested_record_ids?: string[]
   purpose: string
   urgency?: AccessRequest['urgency']
+  status?: AccessRequest['status']
+  expires_at?: string
 }): Promise<AccessRequest | null> {
   try {
     const { data, error } = await supabase
@@ -360,7 +360,8 @@ export async function updateAccessRequest(
   requestId: string,
   updates: {
     status?: AccessRequest['status']
-    response_message?: string
+    patient_response?: string
+    denial_reason?: string
     expires_at?: string
   }
 ): Promise<AccessRequest | null> {

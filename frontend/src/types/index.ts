@@ -34,19 +34,26 @@ export interface EHRRecord {
 
 export interface AccessRequest {
   id: string
-  doctor_id: string
-  patient_id: string
-  record_id?: string // null for general access
-  reason: string
-  status: 'pending' | 'approved' | 'rejected' | 'expired'
-  requested_at: string
+  doctor_wallet: string
+  patient_wallet: string
+  requested_record_ids?: string[] // Array of requested record IDs
+  purpose: string
+  urgency?: 'routine' | 'urgent' | 'emergency'
+  status: 'draft' | 'sent' | 'approved' | 'denied' | 'expired' | 'revoked'
+  patient_response?: string
+  denial_reason?: string
+  created_at?: string
+  sent_at?: string
   responded_at?: string
   expires_at?: string
+  consent_document_hash?: string
+  legal_basis?: string
+  jurisdiction?: string
 
-  // Populated fields
+  // Populated fields (for UI convenience, not in DB)
   doctor?: User
   patient?: User
-  record?: EHRRecord
+  records?: EHRRecord[]
 }
 
 export interface AccessLog {

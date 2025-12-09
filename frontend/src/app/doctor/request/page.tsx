@@ -111,6 +111,7 @@ export default function DoctorRequestPage() {
           ) : (
             <AccessRequestForm
               selectedRecord={selectedRecord}
+              doctorWallet={doctorWallet || ''}
               onCancel={() => setSelectedRecord(null)}
               onSuccess={handleRequestSuccess}
             />

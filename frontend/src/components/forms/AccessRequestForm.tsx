@@ -18,11 +18,12 @@ import { useToast } from "@/components/ui/use-toast"
 
 interface AccessRequestFormProps {
   selectedRecord: EHRRecord
+  doctorWallet: string
   onCancel: () => void
   onSuccess: () => void
 }
 
-export default function AccessRequestForm({ selectedRecord, onCancel, onSuccess }: AccessRequestFormProps) {
+export default function AccessRequestForm({ selectedRecord, doctorWallet, onCancel, onSuccess }: AccessRequestFormProps) {
   const [formData, setFormData] = useState({
     reason: "",
     duration: "7"
@@ -35,29 +36,15 @@ export default function AccessRequestForm({ selectedRecord, onCancel, onSuccess 
     setSubmitting(true)
 
     try {
-      const { dbOperations, supabase } = await import('@/lib/supabase/client')
+      const { dbOperations } = await import('@/lib/supabase/client')
 
-      // Get current user (doctor)
-      const { data: { user } } = await supabase.auth.getUser()
-
-      if (!user) {
-        throw new Error("Not authenticated")
-      }
-
-      // Get doctor's wallet address
-      const { data: doctorData } = await supabase
-        .from('users')
-        .select('wallet_address')
-        .eq('auth_user_id', user.id)
-        .single()
-
-      if (!doctorData?.wallet_address) {
-        throw new Error("Doctor wallet not found")
+      if (!doctorWallet) {
+        throw new Error("Doctor wallet not connected")
       }
 
       await dbOperations.createAccessRequest({
-        doctor_wallet: doctorData.wallet_address,
-        patient_wallet: selectedRecord.patient_id,
+        doctor_wallet: doctorWallet.toLowerCase(),
+        patient_wallet: selectedRecord.patient_id.toLowerCase(),
         requested_record_ids: [selectedRecord.id],
         purpose: formData.reason,
         status: 'sent',
@@ -97,11 +84,15 @@ export default function AccessRequestForm({ selectedRecord, onCancel, onSuccess 
           <Textarea
             id="reason"
             required
+            minLength={10}
             value={formData.reason}
             onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setFormData(prev => ({ ...prev, reason: e.target.value }))}
-            placeholder="Please explain why you need access to this record..."
+            placeholder="Please explain why you need access to this record (minimum 10 characters)..."
             rows={4}
           />
+          {formData.reason.length > 0 && formData.reason.length < 10 && (
+            <p className="text-sm text-red-500 mt-1">Reason must be at least 10 characters ({formData.reason.length}/10)</p>
+          )}
         </div>
 
         <div>
