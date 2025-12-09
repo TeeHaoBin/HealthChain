@@ -109,11 +109,12 @@ export const dbOperations = {
     }
 
     // Get pending access requests for this doctor-patient pair
+    // Use ilike for case-insensitive matching since wallet addresses are stored lowercase
     const { data: requests, error: reqError } = await supabase
       .from('access_requests')
       .select('*')
-      .eq('patient_wallet', patientWallet)
-      .eq('doctor_wallet', doctorWallet)
+      .ilike('patient_wallet', patientWallet)
+      .ilike('doctor_wallet', doctorWallet)
       .eq('status', 'sent')
 
     console.log('[getRecordsWithPermissions] Pending requests:', requests, reqError)
