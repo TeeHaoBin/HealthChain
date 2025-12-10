@@ -68,28 +68,51 @@ export interface AccessRequest {
   expires_at?: string
 }
 
+// In-memory cache for user lookups to prevent redundant API calls
+const userCache = new Map<string, { user: User | null; timestamp: number }>()
+const USER_CACHE_TTL = 30000 // 30 seconds
+
+// Function to clear cache (useful for logout or user updates)
+export function clearUserCache(walletAddress?: string) {
+  if (walletAddress) {
+    userCache.delete(walletAddress.toLowerCase())
+  } else {
+    userCache.clear()
+  }
+}
+
 // User Management
 export async function getUserByWallet(walletAddress: string): Promise<User | null> {
   try {
-    console.log('Searching for wallet address:', walletAddress?.toLowerCase())
+    const normalizedAddress = walletAddress?.toLowerCase()
+
+    if (!normalizedAddress) {
+      return null
+    }
+
+    // Check cache first
+    const cached = userCache.get(normalizedAddress)
+    if (cached && Date.now() - cached.timestamp < USER_CACHE_TTL) {
+      return cached.user
+    }
 
     const { data, error } = await supabase
       .from('users')
       .select('*')
-      .eq('wallet_address', walletAddress.toLowerCase())
+      .eq('wallet_address', normalizedAddress)
       .single()
 
     if (error) {
-      console.log('Supabase error details:', error)
       if (error.code === 'PGRST116') {
-        // No user found
-        console.log('No user found for wallet:', walletAddress.toLowerCase())
+        // No user found - cache this result too
+        userCache.set(normalizedAddress, { user: null, timestamp: Date.now() })
         return null
       }
       throw error
     }
 
-    console.log('Found user:', data)
+    // Cache the successful result
+    userCache.set(normalizedAddress, { user: data, timestamp: Date.now() })
     return data
   } catch (error) {
     console.error('Error fetching user:', error)
