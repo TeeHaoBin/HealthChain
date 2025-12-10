@@ -14,6 +14,12 @@ export class LitProtocolClient {
   private litNodeClient: LitNodeClient | null = null;
   private chain = "ethereum";
 
+  // Cache auth signature to avoid prompting user multiple times
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private cachedAuthSig: any = null;
+  private authSigTimestamp: number = 0;
+  private readonly AUTH_SIG_TTL = 10 * 60 * 1000; // 10 minutes TTL
+
   async connect() {
     if (this.litNodeClient) {
       return this.litNodeClient;
@@ -38,6 +44,9 @@ export class LitProtocolClient {
     if (this.litNodeClient) {
       await this.litNodeClient.disconnect();
       this.litNodeClient = null;
+      // Clear cached auth signature on disconnect
+      this.cachedAuthSig = null;
+      this.authSigTimestamp = 0;
       console.log("🔌 Disconnected from Lit Protocol");
     }
   }
@@ -245,7 +254,16 @@ export class LitProtocolClient {
   }
 
   // Get authentication signature from wallet using Lit Protocol's built-in SIWE helper
+  // Uses caching to avoid prompting user multiple times within TTL window
   async getAuthSig(): Promise<any> {
+    // Check if we have a valid cached auth signature
+    const now = Date.now();
+    if (this.cachedAuthSig && (now - this.authSigTimestamp) < this.AUTH_SIG_TTL) {
+      console.log("✅ Using cached auth signature (valid for",
+        Math.round((this.AUTH_SIG_TTL - (now - this.authSigTimestamp)) / 1000), "more seconds)");
+      return this.cachedAuthSig;
+    }
+
     try {
       // Import Lit's official auth helper
       const { checkAndSignAuthMessage } = await import('@lit-protocol/lit-node-client');
@@ -259,7 +277,11 @@ export class LitProtocolClient {
         // resources: [],
       });
 
-      console.log("✅ Generated auth signature using Lit Protocol's SIWE helper");
+      // Cache the auth signature for future use
+      this.cachedAuthSig = authSig;
+      this.authSigTimestamp = Date.now();
+
+      console.log("✅ Generated and cached auth signature using Lit Protocol's SIWE helper");
       return authSig;
     } catch (error) {
       console.error("❌ Failed to get auth signature:", error);
