@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useSyncExternalStore } from 'react'
 import { useAccount } from 'wagmi'
 import { supabase } from '@/lib/supabase/client'
 import { getUserByWallet, clearUserCache, type UserRole, type User } from '@/lib/supabase/helpers'
@@ -18,32 +18,69 @@ interface UseRoleReturn {
 // MODULE-LEVEL CACHE - shared across all hook instances
 // This prevents redundant auth checks when navigating between pages
 // ============================================
-let cachedRole: UserRole | null = null
-let cachedUser: User | null = null
+interface AuthCache {
+  role: UserRole | null
+  user: User | null
+  loading: boolean
+  error: string | null
+}
+
+let authCache: AuthCache = {
+  role: null,
+  user: null,
+  loading: true,
+  error: null
+}
 let lastAuthCheckKey: string = ''
 let authCheckInProgress: boolean = false
 let authCheckPromise: Promise<void> | null = null
 
+// Subscribers for cache changes
+const cacheSubscribers = new Set<() => void>()
+
+function notifyCacheSubscribers() {
+  cacheSubscribers.forEach(callback => callback())
+}
+
+function subscribeToCache(callback: () => void) {
+  cacheSubscribers.add(callback)
+  return () => cacheSubscribers.delete(callback)
+}
+
+function getCacheSnapshot(): AuthCache {
+  return authCache
+}
+
+// MUST be a cached constant - returning a new object causes infinite loop
+const SERVER_SNAPSHOT: AuthCache = { role: null, user: null, loading: true, error: null }
+
+function getServerSnapshot(): AuthCache {
+  return SERVER_SNAPSHOT
+}
+
+function updateCache(updates: Partial<AuthCache>) {
+  authCache = { ...authCache, ...updates }
+  notifyCacheSubscribers()
+}
+
 // Reset cache on logout
 function resetAuthCache() {
-  cachedRole = null
-  cachedUser = null
   lastAuthCheckKey = ''
   authCheckInProgress = false
   authCheckPromise = null
+  updateCache({ role: null, user: null, loading: false, error: null })
   clearUserCache() // Also clear the helpers.ts cache
 }
 
 export function useRole(): UseRoleReturn {
   const { address, isConnected } = useAccount()
-  // Initialize with cached values if available
-  const [role, setRole] = useState<UserRole | null>(cachedRole)
-  const [loading, setLoading] = useState(cachedRole === null)
-  const [error, setError] = useState<string | null>(null)
-  const [user, setUser] = useState<User | null>(cachedUser)
-  const [isLoggingOut, setIsLoggingOut] = useState(logoutStateManager.getIsLoggingOut())
 
+  // Use useSyncExternalStore for stable cache synchronization across all hook instances
+  const cache = useSyncExternalStore(subscribeToCache, getCacheSnapshot, getServerSnapshot)
+
+  const [isLoggingOut, setIsLoggingOut] = useState(logoutStateManager.getIsLoggingOut())
   const authCheckDebounceTimer = useRef<NodeJS.Timeout | null>(null)
+  const isInitialMount = useRef(true)
 
   // Subscribe to logout state changes
   useEffect(() => {
@@ -56,37 +93,26 @@ export function useRole(): UseRoleReturn {
       if (currentLogoutState) {
         console.log('🚫 useRole: Clearing all auth caches due to logout')
         resetAuthCache()
-        setRole(null)
-        setUser(null)
-        setLoading(false)
-        setError(null)
       }
     })
 
     return unsubscribe
   }, [])
 
-  const checkAuthAndRole = useCallback(async () => {
-    // Create a cache key based on current params
-    const cacheKey = `${address}-${isConnected}-${isLoggingOut}`
+  const checkAuthAndRole = useCallback(async (forceRefresh: boolean = false) => {
+    // Create a cache key based on wallet state only (not isLoggingOut to avoid unnecessary resets)
+    const cacheKey = `${address}-${isConnected}`
 
     // Skip if already in progress - wait for existing check
     if (authCheckInProgress && authCheckPromise) {
       console.log('⏭️ useRole: Auth check in progress, waiting for result...')
       await authCheckPromise
-      // Use cached results
-      setRole(cachedRole)
-      setUser(cachedUser)
-      setLoading(false)
       return
     }
 
-    // Skip if params haven't changed AND we have a cached role
-    if (lastAuthCheckKey === cacheKey && cachedRole !== null) {
+    // Skip if params haven't changed AND we have a cached role (unless force refresh)
+    if (!forceRefresh && lastAuthCheckKey === cacheKey && authCache.role !== null) {
       console.log('⏭️ useRole: Using cached auth (same params, have role)')
-      setRole(cachedRole)
-      setUser(cachedUser)
-      setLoading(false)
       return
     }
 
@@ -94,10 +120,6 @@ export function useRole(): UseRoleReturn {
     if (isLoggingOut || logoutStateManager.getIsLoggingOut()) {
       console.log('🚫 useRole blocked - logout in progress')
       resetAuthCache()
-      setRole(null)
-      setUser(null)
-      setLoading(false)
-      setError(null)
       return
     }
 
@@ -105,10 +127,9 @@ export function useRole(): UseRoleReturn {
     lastAuthCheckKey = cacheKey
 
     // Only set loading if we don't have cached data
-    if (cachedRole === null) {
-      setLoading(true)
+    if (authCache.role === null) {
+      updateCache({ loading: true, error: null })
     }
-    setError(null)
 
     // Create a promise that other instances can wait on
     authCheckPromise = (async () => {
@@ -120,8 +141,7 @@ export function useRole(): UseRoleReturn {
         )
 
         if (!sessionResult) {
-          cachedRole = null
-          cachedUser = null
+          updateCache({ role: null, user: null, loading: false })
           return
         }
 
@@ -138,11 +158,13 @@ export function useRole(): UseRoleReturn {
               'User lookup by wallet (from session)'
             )
 
-            cachedRole = userData?.role ?? null
-            cachedUser = userData
+            updateCache({
+              role: userData?.role ?? null,
+              user: userData ?? null,
+              loading: false
+            })
           } else {
-            cachedRole = null
-            cachedUser = null
+            updateCache({ role: null, user: null, loading: false })
           }
         } else if (address && isConnected) {
           console.log('ℹ️ Wallet connected but no Supabase session - attempting wallet-based auth for:', address.slice(0, 6) + '...')
@@ -154,47 +176,33 @@ export function useRole(): UseRoleReturn {
 
           if (userData) {
             console.log('✅ Wallet-based authentication successful - user found:', userData.role)
-            cachedRole = userData.role
-            cachedUser = userData
+            updateCache({
+              role: userData.role,
+              user: userData,
+              loading: false
+            })
           } else {
             console.log('ℹ️ Wallet connected but no user record found - user needs to register')
-            cachedRole = null
-            cachedUser = null
+            updateCache({ role: null, user: null, loading: false })
           }
         } else {
-          cachedRole = null
-          cachedUser = null
+          updateCache({ role: null, user: null, loading: false })
         }
       } catch (err) {
         console.error('Error fetching user role:', err)
-        cachedRole = null
-        cachedUser = null
-        throw err
+        updateCache({ role: null, user: null, loading: false, error: 'Failed to fetch user role' })
       } finally {
         authCheckInProgress = false
       }
     })()
 
-    try {
-      await authCheckPromise
-      setRole(cachedRole)
-      setUser(cachedUser)
-    } catch (err) {
-      setError('Failed to fetch user role')
-      setRole(null)
-      setUser(null)
-    } finally {
-      setLoading(false)
-    }
+    await authCheckPromise
   }, [address, isConnected, isLoggingOut])
 
   useEffect(() => {
-    // If we already have cached data for same params, use it immediately
-    const cacheKey = `${address}-${isConnected}-${isLoggingOut}`
-    if (lastAuthCheckKey === cacheKey && cachedRole !== null) {
-      setRole(cachedRole)
-      setUser(cachedUser)
-      setLoading(false)
+    // If we already have cached data for same params, skip re-checking
+    const cacheKey = `${address}-${isConnected}`
+    if (lastAuthCheckKey === cacheKey && authCache.role !== null) {
       return
     }
 
@@ -203,19 +211,31 @@ export function useRole(): UseRoleReturn {
       clearTimeout(authCheckDebounceTimer.current)
     }
 
-    // Debounce auth checks
+    // Debounce auth checks - use longer delay on initial mount to avoid React Strict Mode double-render
+    const debounceDelay = isInitialMount.current ? 100 : 50
+    isInitialMount.current = false
+
     authCheckDebounceTimer.current = setTimeout(() => {
       checkAuthAndRole()
-    }, 50)
+    }, debounceDelay)
 
     // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED') {
-        // Reset cache to force fresh check
+      // Only reset cache for SIGNED_IN and SIGNED_OUT
+      // TOKEN_REFRESHED should NOT reset the role - it's just a session refresh
+      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
+        console.log('🔐 Auth state changed:', event)
         lastAuthCheckKey = ''
-        cachedRole = null
-        cachedUser = null
-        checkAuthAndRole()
+        checkAuthAndRole(true)
+      } else if (event === 'TOKEN_REFRESHED') {
+        // For token refresh, only re-check if we don't have a role cached
+        // This prevents the role from flashing to null
+        if (authCache.role === null) {
+          console.log('🔄 Token refreshed, checking auth (no cached role)')
+          checkAuthAndRole(true)
+        } else {
+          console.log('🔄 Token refreshed, keeping cached role:', authCache.role)
+        }
       }
     })
 
@@ -225,13 +245,13 @@ export function useRole(): UseRoleReturn {
         clearTimeout(authCheckDebounceTimer.current)
       }
     }
-  }, [checkAuthAndRole, address, isConnected, isLoggingOut])
+  }, [checkAuthAndRole, address, isConnected])
 
   return {
-    role,
-    loading,
+    role: cache.role,
+    loading: cache.loading,
     isAuthenticated: isConnected && !!address,
-    error,
-    user
+    error: cache.error,
+    user: cache.user
   }
 }
