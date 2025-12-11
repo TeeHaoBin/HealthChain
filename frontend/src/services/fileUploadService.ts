@@ -286,6 +286,154 @@ export class FileUploadService {
     }
   }
 
+  /**
+   * Grant doctor access with full re-encryption flow.
+   * Re-encrypts the file with updated Lit Protocol access conditions.
+   */
+  async grantAccessWithReEncryption(
+    fileId: string,
+    doctorAddress: string,
+    onProgress?: (step: string) => void
+  ): Promise<{ success: boolean; error?: string; newIpfsHash?: string }> {
+    try {
+      const reportProgress = (step: string) => {
+        console.log(`📋 ${step}`)
+        onProgress?.(step)
+      }
+
+      reportProgress('Fetching file metadata...')
+
+      // Step 1: Fetch file metadata from Supabase
+      const { data: record, error: fetchError } = await supabase
+        .from('health_records')
+        .select('*')
+        .eq('id', fileId)
+        .single()
+
+      if (fetchError || !record) {
+        throw new Error(`Failed to fetch record: ${fetchError?.message || 'Record not found'}`)
+      }
+
+      const patientAddress = record.patient_wallet
+      const currentDoctors = record.authorized_doctors || []
+      const normalizedDoctorAddress = doctorAddress.toLowerCase()
+
+      // Check if doctor already has access
+      if (currentDoctors.includes(normalizedDoctorAddress)) {
+        console.log('⚠️ Doctor already has access to this file')
+        return { success: true, newIpfsHash: record.ipfs_hash }
+      }
+
+      if (!record.ipfs_hash) {
+        throw new Error('No IPFS hash found for this record')
+      }
+
+      reportProgress('Downloading encrypted file from IPFS...')
+
+      // Step 2: Download encrypted file from IPFS
+      const encryptedBlob = await this.fetchFromIPFSWithFallback(record.ipfs_hash)
+      if (!encryptedBlob) {
+        throw new Error('Failed to fetch file from IPFS')
+      }
+
+      reportProgress('Decrypting file (wallet signature required)...')
+
+      // Step 3: Decrypt using Lit Protocol
+      await litClient.connect()
+
+      const accessControlConditions = typeof record.access_control_conditions === 'string'
+        ? JSON.parse(record.access_control_conditions)
+        : record.access_control_conditions
+
+      const encryptedString = await encryptedBlob.text()
+
+      const decryptedBlob = await litClient.decryptFile(
+        encryptedString,
+        record.encrypted_symmetric_key,
+        accessControlConditions
+      )
+
+      // Convert decrypted result to File for re-encryption
+      let decryptedFile: File
+      if (decryptedBlob instanceof Blob) {
+        decryptedFile = new File([decryptedBlob], record.file_name || 'decrypted_file', {
+          type: record.mime_type || 'application/octet-stream'
+        })
+      } else {
+        decryptedFile = new File([decryptedBlob], record.file_name || 'decrypted_file', {
+          type: record.mime_type || 'application/octet-stream'
+        })
+      }
+
+      reportProgress('Re-encrypting with new access conditions...')
+
+      // Step 4: Re-encrypt with updated access conditions (including new doctor)
+      const updatedDoctors = [...currentDoctors, normalizedDoctorAddress]
+
+      const encryptionResult = await litClient.encryptFileBinary(
+        decryptedFile,
+        patientAddress,
+        updatedDoctors
+      )
+
+      if (!encryptionResult || !encryptionResult.encryptedData) {
+        throw new Error('Re-encryption failed')
+      }
+
+      reportProgress('Uploading re-encrypted file to IPFS...')
+
+      // Step 5: Upload new encrypted file to IPFS
+      const newIpfsHash = await ipfsClient.uploadEncryptedFile(
+        encryptionResult.encryptedData,
+        record.file_name || 'health_record',
+        {
+          patientAddress,
+          authorizedDoctors: updatedDoctors,
+          fileType: record.mime_type || 'application/octet-stream',
+          fileSize: record.file_size || decryptedFile.size,
+          recordType: record.record_type,
+          dateCreated: record.created_at
+        }
+      )
+
+      reportProgress('Updating database...')
+
+      // Step 6: Update Supabase with new hash, conditions, and authorized_doctors
+      const { error: updateError } = await supabase
+        .from('health_records')
+        .update({
+          ipfs_hash: newIpfsHash,
+          encrypted_symmetric_key: encryptionResult.encryptedSymmetricKey,
+          access_control_conditions: encryptionResult.accessControlConditions,
+          authorized_doctors: updatedDoctors
+        })
+        .eq('id', fileId)
+
+      if (updateError) {
+        throw new Error(`Database update failed: ${updateError.message}`)
+      }
+
+      reportProgress('Access granted successfully!')
+      console.log('✅ Doctor access granted with re-encryption:', {
+        fileId,
+        doctorAddress: normalizedDoctorAddress,
+        newIpfsHash,
+        totalAuthorizedDoctors: updatedDoctors.length
+      })
+
+      return { success: true, newIpfsHash }
+
+    } catch (error) {
+      console.error('❌ Failed to grant access with re-encryption:', error)
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error occurred'
+      }
+    } finally {
+      await litClient.disconnect()
+    }
+  }
+
   // Retrieve and decrypt a file
   async retrieveFile(fileId: string): Promise<Blob> {
     try {
