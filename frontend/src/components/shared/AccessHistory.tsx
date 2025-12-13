@@ -337,8 +337,8 @@ export default function AccessHistory({ walletAddress }: AccessHistoryProps) {
                               <Info className="h-4 w-4 text-gray-500" />
                             </button>
                           </TooltipTrigger>
-                          <TooltipContent side="bottom" className="max-w-xs">
-                            <p className="text-sm">{request.purpose || "No reason provided"}</p>
+                          <TooltipContent side="bottom" className="max-w-md">
+                            <p className="text-sm break-words">{request.purpose || "No reason provided"}</p>
                           </TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
@@ -398,13 +398,30 @@ export default function AccessHistory({ walletAddress }: AccessHistoryProps) {
               <div>
                 <p className="text-sm text-gray-500 mb-1">Patient</p>
                 <p className="font-medium">
-                  {selectedRequest.patient_name || formatWallet(selectedRequest.patient_wallet)}
+                  {selectedRequest.patient_name || "Unknown"}
+                </p>
+                <p className="text-xs text-gray-500 font-mono mt-0.5">
+                  {selectedRequest.patient_wallet}
                 </p>
               </div>
 
+              {selectedRequest.document_names && selectedRequest.document_names.length > 0 && (
+                <div>
+                  <p className="text-sm text-gray-500 mb-1">Document</p>
+                  <div className="space-y-1">
+                    {selectedRequest.document_names.map((name, idx) => (
+                      <p key={idx} className="text-gray-700 flex items-center gap-2">
+                        <FileText className="h-4 w-4 text-blue-500 flex-shrink-0" />
+                        {name}
+                      </p>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div>
                 <p className="text-sm text-gray-500 mb-1">Your Request</p>
-                <p className="text-gray-700">{selectedRequest.purpose}</p>
+                <p className="text-gray-700 break-words whitespace-pre-wrap">{selectedRequest.purpose}</p>
               </div>
 
               {selectedRequest.denial_reason && (
