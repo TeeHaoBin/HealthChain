@@ -421,13 +421,17 @@ export default function AccessHistory({ walletAddress }: AccessHistoryProps) {
 
               <div>
                 <p className="text-sm text-gray-500 mb-1">Your Request</p>
-                <p className="text-gray-700 break-words whitespace-pre-wrap">{selectedRequest.purpose}</p>
+                <div className="max-h-24 overflow-y-auto bg-gray-50 rounded-md p-2">
+                  <p className="text-gray-700 break-words whitespace-pre-wrap text-sm">{selectedRequest.purpose}</p>
+                </div>
               </div>
 
               {selectedRequest.denial_reason && (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3">
                   <p className="text-sm text-red-600 font-medium mb-1">Reason for Decline</p>
-                  <p className="text-red-700">{selectedRequest.denial_reason}</p>
+                  <div className="max-h-24 overflow-y-auto">
+                    <p className="text-red-700 break-words whitespace-pre-wrap text-sm">{selectedRequest.denial_reason}</p>
+                  </div>
                 </div>
               )}
 
