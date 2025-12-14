@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -13,7 +14,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { Search, X, FileText, AlertCircle, Info } from "lucide-react"
+import { Search, X, FileText, ExternalLink, AlertCircle, Info } from "lucide-react"
 import { getAccessRequestsWithPatient, AccessRequestWithPatient } from "@/lib/supabase/helpers"
 
 interface AccessHistoryProps {
@@ -307,16 +308,34 @@ export default function AccessHistory({ walletAddress }: AccessHistoryProps) {
                         <TooltipProvider>
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <div className="flex items-center gap-2 cursor-help">
-                                <FileText className="h-4 w-4 text-blue-500 flex-shrink-0" />
-                                <span className="text-sm text-gray-700 truncate max-w-[150px]">
-                                  {request.document_names.length === 1
-                                    ? request.document_names[0]
-                                    : `${request.document_names.length} documents`}
-                                </span>
-                              </div>
+                              {displayStatus === "granted" && request.requested_record_ids?.length ? (
+                                <Link
+                                  href={`/doctor/documents?highlightId=${request.requested_record_ids[0]}`}
+                                  className="flex items-center gap-2 cursor-pointer hover:text-blue-600 transition-colors group"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <ExternalLink className="h-4 w-4 text-blue-500 flex-shrink-0 group-hover:text-blue-600" />
+                                  <span className="text-sm text-gray-700 truncate max-w-[150px] group-hover:text-blue-600 group-hover:underline">
+                                    {request.document_names.length === 1
+                                      ? request.document_names[0]
+                                      : `${request.document_names.length} documents`}
+                                  </span>
+                                </Link>
+                              ) : (
+                                <div className="flex items-center gap-2 cursor-help">
+                                  <FileText className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                                  <span className="text-sm text-gray-500 truncate max-w-[150px]">
+                                    {request.document_names.length === 1
+                                      ? request.document_names[0]
+                                      : `${request.document_names.length} documents`}
+                                  </span>
+                                </div>
+                              )}
                             </TooltipTrigger>
                             <TooltipContent side="bottom" className="max-w-xs">
+                              {displayStatus === "granted" && (
+                                <p className="text-xs text-gray-500 mb-1">Click to view in Documents</p>
+                              )}
                               <div className="space-y-1">
                                 {request.document_names.map((name, idx) => (
                                   <p key={idx} className="text-sm">{name}</p>

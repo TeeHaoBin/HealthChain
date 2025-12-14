@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import Link from "next/link"
 import { useAccount } from "wagmi"
 import { format } from "date-fns"
@@ -25,6 +25,11 @@ export default function DoctorDocumentsPage() {
     const [filterType, setFilterType] = useState("all")
     const [viewingId, setViewingId] = useState<string | null>(null)
 
+    // Highlight state for document link navigation
+    const [highlightId, setHighlightId] = useState<string | null>(null)
+    const [highlightedId, setHighlightedId] = useState<string | null>(null)
+    const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map())
+
     useEffect(() => {
         async function fetchData() {
             if (!isConnected || !address) {
@@ -48,6 +53,35 @@ export default function DoctorDocumentsPage() {
 
         fetchData()
     }, [isConnected, address])
+
+    // Parse highlightId from URL on client mount
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            const params = new URLSearchParams(window.location.search)
+            const id = params.get('highlightId')
+            if (id) {
+                setHighlightId(id)
+            }
+        }
+    }, [])
+
+    // Scroll to and highlight the document if highlightId is provided
+    useEffect(() => {
+        if (highlightId && !loading && files.length > 0) {
+            setHighlightedId(highlightId)
+
+            setTimeout(() => {
+                const cardElement = cardRefs.current.get(highlightId)
+                if (cardElement) {
+                    cardElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                }
+            }, 100)
+
+            setTimeout(() => {
+                setHighlightedId(null)
+            }, 5000)
+        }
+    }, [highlightId, loading, files])
 
     const handleViewRecord = async (file: FileMetadata) => {
         try {
@@ -208,7 +242,20 @@ export default function DoctorDocumentsPage() {
                             ) : (
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                     {filteredFiles.map((file) => (
-                                        <Card key={file.id} className="hover:shadow-md transition-shadow duration-200">
+                                        <Card
+                                            key={file.id}
+                                            ref={(el: HTMLDivElement | null) => {
+                                                if (el) cardRefs.current.set(file.id, el)
+                                                else cardRefs.current.delete(file.id)
+                                            }}
+                                            className={`hover:shadow-md transition-all duration-300 ${highlightedId === file.id
+                                                ? 'ring-2 ring-blue-500 ring-offset-2 shadow-lg bg-blue-50/50'
+                                                : ''
+                                                }`}
+                                            style={highlightedId === file.id ? {
+                                                animation: 'blink-border 0.8s ease-in-out infinite'
+                                            } : undefined}
+                                        >
                                             <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
                                                 <div className="flex items-center gap-3">
                                                     <div className="p-2 bg-blue-50 rounded-lg">
