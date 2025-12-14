@@ -154,18 +154,20 @@ export default function AccessHistory({ walletAddress }: AccessHistoryProps) {
   const stats = useMemo(() => {
     if (!currentTime) {
       // Return zeros during SSR to avoid hydration mismatch
-      return { active: 0, completed: 0, total: requests.length }
+      return { pending: 0, declined: 0, active: 0, expired: 0 }
     }
     return {
+      pending: requests.filter(r => r.status === "sent" || r.status === "draft").length,
+      declined: requests.filter(r => r.status === "denied").length,
       active: requests.filter(r => {
         const expiresAt = r.expires_at ? new Date(r.expires_at) : null
         return r.status === "approved" && expiresAt && expiresAt > currentTime
       }).length,
-      completed: requests.filter(r => {
+      expired: requests.filter(r => {
         const expiresAt = r.expires_at ? new Date(r.expires_at) : null
-        return r.status === "approved" && expiresAt && expiresAt <= currentTime
-      }).length,
-      total: requests.length
+        return (r.status === "approved" && expiresAt && expiresAt <= currentTime) ||
+          r.status === "expired" || r.status === "revoked"
+      }).length
     }
   }, [requests, currentTime])
 
@@ -228,18 +230,22 @@ export default function AccessHistory({ walletAddress }: AccessHistoryProps) {
     <div className="space-y-6">
       {/* Statistics Cards */}
       <Card className="p-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="text-center p-4 bg-yellow-50 rounded-lg">
+            <div className="text-2xl font-bold text-yellow-600">{stats.pending}</div>
+            <div className="text-sm text-yellow-700">Pending</div>
+          </div>
+          <div className="text-center p-4 bg-red-50 rounded-lg">
+            <div className="text-2xl font-bold text-red-600">{stats.declined}</div>
+            <div className="text-sm text-red-700">Declined</div>
+          </div>
           <div className="text-center p-4 bg-green-50 rounded-lg">
             <div className="text-2xl font-bold text-green-600">{stats.active}</div>
             <div className="text-sm text-green-700">Active Access</div>
           </div>
-          <div className="text-center p-4 bg-blue-50 rounded-lg">
-            <div className="text-2xl font-bold text-blue-600">{stats.completed}</div>
-            <div className="text-sm text-blue-700">Completed</div>
-          </div>
           <div className="text-center p-4 bg-gray-50 rounded-lg">
-            <div className="text-2xl font-bold text-gray-600">{stats.total}</div>
-            <div className="text-sm text-gray-700">Total Requests</div>
+            <div className="text-2xl font-bold text-gray-600">{stats.expired}</div>
+            <div className="text-sm text-gray-700">Expired</div>
           </div>
         </div>
       </Card>
