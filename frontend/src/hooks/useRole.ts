@@ -134,7 +134,54 @@ export function useRole(): UseRoleReturn {
     // Create a promise that other instances can wait on
     authCheckPromise = (async () => {
       try {
-        // First check Supabase Auth session
+        // ============================================
+        // PRIORITY 1: Check custom session token from localStorage
+        // This is the primary auth method for Web3 wallet-based auth
+        // ============================================
+        if (typeof window !== 'undefined') {
+          const authData = localStorage.getItem('healthchain_auth')
+          if (authData) {
+            try {
+              const parsed = JSON.parse(authData)
+              const sessionToken = parsed.sessionToken || parsed.session_token
+
+              if (sessionToken) {
+                console.log('🔐 useRole: Found custom session token, validating...')
+
+                const validationResult = await logoutStateManager.blockAuthDuringLogout(
+                  () => supabase.rpc('validate_session_and_get_user', {
+                    p_session_token: sessionToken
+                  }),
+                  'Custom session validation'
+                )
+
+                if (validationResult?.data?.success && validationResult?.data?.user) {
+                  const userData = validationResult.data.user
+                  console.log('✅ useRole: Custom session valid! User:', userData.role)
+
+                  updateCache({
+                    role: userData.role,
+                    user: userData,
+                    loading: false
+                  })
+                  authCheckInProgress = false
+                  return
+                } else {
+                  // Session invalid or expired - clear it
+                  console.log('⚠️ useRole: Custom session invalid or expired, clearing...')
+                  localStorage.removeItem('healthchain_auth')
+                }
+              }
+            } catch (parseError) {
+              console.warn('⚠️ useRole: Failed to parse healthchain_auth:', parseError)
+              localStorage.removeItem('healthchain_auth')
+            }
+          }
+        }
+
+        // ============================================
+        // PRIORITY 2: Check Supabase Auth session (for compatibility)
+        // ============================================
         const sessionResult = await logoutStateManager.blockAuthDuringLogout(
           () => supabase.auth.getSession(),
           'Supabase session check'
@@ -167,7 +214,10 @@ export function useRole(): UseRoleReturn {
             updateCache({ role: null, user: null, loading: false })
           }
         } else if (address && isConnected) {
-          console.log('ℹ️ Wallet connected but no Supabase session - attempting wallet-based auth for:', address.slice(0, 6) + '...')
+          // ============================================
+          // PRIORITY 3: Wallet connected but no session - check user exists
+          // ============================================
+          console.log('ℹ️ Wallet connected but no session - checking if user exists for:', address.slice(0, 6) + '...')
 
           const userData = await logoutStateManager.blockAuthDuringLogout(
             () => getUserByWallet(address),
@@ -175,7 +225,7 @@ export function useRole(): UseRoleReturn {
           )
 
           if (userData) {
-            console.log('✅ Wallet-based authentication successful - user found:', userData.role)
+            console.log('✅ User found for connected wallet:', userData.role)
             updateCache({
               role: userData.role,
               user: userData,
@@ -250,7 +300,8 @@ export function useRole(): UseRoleReturn {
   return {
     role: cache.role,
     loading: cache.loading,
-    isAuthenticated: isConnected && !!address,
+    // isAuthenticated: true if we have a valid role (from session) OR wallet is connected
+    isAuthenticated: !!cache.role || (isConnected && !!address),
     error: cache.error,
     user: cache.user
   }

@@ -74,13 +74,13 @@ Issued At: ${new Date().toISOString()}`
     try {
       // Step 1: Check if user exists in our database
       const existingUser = await getUserByWallet(address)
-      
+
       // Step 2: Generate message with nonce
       const nonce = Math.random().toString(36).substring(2, 15)
       const message = generateAuthMessage(address, nonce)
 
       // Step 3: Get user signature
-      const signature = await signMessageAsync({ 
+      const signature = await signMessageAsync({
         message,
         account: address as `0x${string}` // Ensure we sign with the connected account
       })
@@ -99,10 +99,10 @@ Issued At: ${new Date().toISOString()}`
       if (authResult?.user) {
         // User exists and is authenticated
         console.log('✅ User authenticated successfully:', existingUser)
-        
+
         // Update last login timestamp
         await updateLastLogin(existingUser.id)
-        
+
         // Store auth state in localStorage WITH session token
         const authData = {
           wallet: address,
@@ -112,19 +112,19 @@ Issued At: ${new Date().toISOString()}`
         }
         console.log('💾 Saving auth with session token to localStorage:', authData)
         localStorage.setItem('healthchain_auth', JSON.stringify(authData))
-        
+
         // Set authenticated state
         setAuthState({
           step: 'complete',
           user: existingUser,
           isAuthenticated: true
         })
-        
+
         // Redirect existing users to their dashboard
         setTimeout(() => {
           console.log('🔄 Redirecting existing user to dashboard for role:', existingUser.role)
           let dashboardPath = '/dashboard'
-          
+
           switch (existingUser.role) {
             case 'patient':
               dashboardPath = '/patient/dashboard'
@@ -136,7 +136,7 @@ Issued At: ${new Date().toISOString()}`
               dashboardPath = '/admin/dashboard'
               break
           }
-          
+
           console.log('🔄 Using router.push to:', dashboardPath)
           router.push(dashboardPath)
         }, 1000)
@@ -160,43 +160,67 @@ Issued At: ${new Date().toISOString()}`
       console.log('❌ No address available')
       return
     }
-    
+
     try {
       console.log('🔍 Getting user by wallet:', address)
       const existingUser = await getUserByWallet(address)
-      
+
       if (existingUser) {
-        console.log('✅ User found, setting auth state:', existingUser)
-        
+        console.log('✅ User found, creating session:', existingUser)
+
+        // Generate a new session for the newly registered user
+        // We need to call auth_web3_secure to create a session entry
+        const nonce = Math.random().toString(36).substring(2, 15)
+        const message = generateAuthMessage(address, nonce)
+
+        // Sign message to create a proper session
+        const signature = await signMessageAsync({
+          message,
+          account: address as `0x${string}`
+        })
+
+        const { data: authResult, error: authError } = await supabase.rpc('auth_web3_secure', {
+          wallet_address: address.toLowerCase(),
+          signature: signature,
+          message: message,
+          nonce: Date.now().toString(),
+          ip_address: '127.0.0.1'
+        })
+
+        if (authError) {
+          console.error('❌ Failed to create session after KYC:', authError)
+          throw authError
+        }
+
         // Set authenticated state
         setAuthState({
           step: 'complete',
           user: existingUser,
           isAuthenticated: true
         })
-        
+
         // Update last login timestamp
         await updateLastLogin(existingUser.id)
-        
+
         // Store auth state in localStorage WITH session token
         const authData = {
           wallet: address,
-          user: existingUser || authResult.user,
-          sessionToken: authResult.session_token, // ← THIS IS THE KEY FIX!
+          user: existingUser,
+          sessionToken: authResult?.session_token,
           timestamp: Date.now()
         }
         console.log('💾 Saving auth with session token to localStorage:', authData)
         localStorage.setItem('healthchain_auth', JSON.stringify(authData))
-        
+
         // Verify it was saved
         const saved = localStorage.getItem('healthchain_auth')
         console.log('✅ Verified localStorage save:', saved ? 'Success' : 'Failed')
-        
+
         // Redirect to appropriate dashboard using Next.js router (preserves state)
         setTimeout(() => {
           console.log('🔄 Redirecting to dashboard for role:', existingUser.role)
           let dashboardPath = '/dashboard'
-          
+
           switch (existingUser.role) {
             case 'patient':
               dashboardPath = '/patient/dashboard'
@@ -208,7 +232,7 @@ Issued At: ${new Date().toISOString()}`
               dashboardPath = '/admin/dashboard'
               break
           }
-          
+
           console.log('🔄 Using router.push to:', dashboardPath)
           router.push(dashboardPath)
         }, 1000)
@@ -248,7 +272,7 @@ Issued At: ${new Date().toISOString()}`
             <p className="text-sm text-gray-600 mb-4">
               Sign a message to cryptographically prove you own this wallet and access your healthcare data securely.
             </p>
-            
+
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
               <div className="flex items-center justify-center space-x-2 mb-2">
                 <Wallet className="h-4 w-4 text-blue-600" />
@@ -262,7 +286,7 @@ Issued At: ${new Date().toISOString()}`
             </div>
           </div>
 
-          <Button 
+          <Button
             onClick={handleAuthenticate}
             disabled={isLoading}
             className="w-full h-12 bg-[#0E76FD] hover:bg-[#00FF00] text-white hover:text-black rounded-2xl font-medium border-none animate-pulse hover:animate-none"
@@ -305,7 +329,7 @@ Issued At: ${new Date().toISOString()}`
               Complete your profile to access HealthChain
             </p>
           </div>
-          
+
           <KYCForm onComplete={handleKYCComplete} />
         </div>
       )
