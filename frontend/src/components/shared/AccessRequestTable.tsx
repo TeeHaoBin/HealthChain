@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useMemo } from "react"
+import Link from "next/link"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -13,7 +14,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { Loader2, Search, FileText, AlertCircle, Info, X } from "lucide-react"
+import { Loader2, Search, FileText, ExternalLink, AlertCircle, Info, X } from "lucide-react"
 import { AccessRequestWithDoctor } from "@/lib/supabase/helpers"
 
 interface AccessRequestTableProps {
@@ -263,16 +264,21 @@ export default function AccessRequestTable({
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <div className="flex items-center gap-2 cursor-help">
-                              <FileText className="h-4 w-4 text-blue-500 flex-shrink-0" />
-                              <span className="text-sm text-gray-700 truncate max-w-[150px]">
+                            <Link
+                              href={`/patient/records?highlightId=${request.requested_record_ids?.[0] || ''}`}
+                              className="flex items-center gap-2 cursor-pointer hover:text-blue-600 transition-colors group"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <ExternalLink className="h-4 w-4 text-blue-500 flex-shrink-0 group-hover:text-blue-600" />
+                              <span className="text-sm text-gray-700 truncate max-w-[150px] group-hover:text-blue-600 group-hover:underline">
                                 {request.document_names.length === 1
                                   ? request.document_names[0]
                                   : `${request.document_names.length} documents`}
                               </span>
-                            </div>
+                            </Link>
                           </TooltipTrigger>
                           <TooltipContent side="bottom" className="max-w-xs">
+                            <p className="text-xs text-gray-500 mb-1">Click to view in Records</p>
                             <div className="space-y-1">
                               {request.document_names.map((name, idx) => (
                                 <p key={idx} className="text-sm">{name}</p>

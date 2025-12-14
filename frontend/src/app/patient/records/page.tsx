@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import Link from "next/link"
 import { useAccount } from "wagmi"
 import { format } from "date-fns"
@@ -18,12 +18,31 @@ import WalletConnect from "@/components/auth/WalletConnect"
 
 export default function PatientRecordsPage() {
   const { isConnected, address } = useAccount()
+
+  // Parse highlightId from URL on client side to avoid useSearchParams Suspense issues
+  const [highlightId, setHighlightId] = useState<string | null>(null)
+
   const [records, setRecords] = useState<FileMetadata[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
   const [filterType, setFilterType] = useState("all")
   const [viewingId, setViewingId] = useState<string | null>(null)
+  const [highlightedId, setHighlightedId] = useState<string | null>(null)
+
+  // Refs for scrolling to highlighted card
+  const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map())
+
+  // Parse highlightId from URL on client mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search)
+      const id = params.get('highlightId')
+      if (id) {
+        setHighlightId(id)
+      }
+    }
+  }, [])
 
   useEffect(() => {
     async function fetchRecords() {
@@ -47,6 +66,27 @@ export default function PatientRecordsPage() {
 
     fetchRecords()
   }, [isConnected, address])
+
+  // Scroll to and highlight the record if highlightId is provided
+  useEffect(() => {
+    if (highlightId && !loading && records.length > 0) {
+      // Set the highlighted ID
+      setHighlightedId(highlightId)
+
+      // Scroll to the card after a short delay to ensure DOM is ready
+      setTimeout(() => {
+        const cardElement = cardRefs.current.get(highlightId)
+        if (cardElement) {
+          cardElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        }
+      }, 100)
+
+      // Clear highlight after 5 seconds
+      setTimeout(() => {
+        setHighlightedId(null)
+      }, 5000)
+    }
+  }, [highlightId, loading, records])
 
   const handleViewRecord = async (record: FileMetadata) => {
     try {
@@ -188,7 +228,20 @@ export default function PatientRecordsPage() {
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {filteredRecords.map((record) => (
-                    <Card key={record.id} className="hover:shadow-md transition-shadow duration-200">
+                    <Card
+                      key={record.id}
+                      ref={(el: HTMLDivElement | null) => {
+                        if (el) cardRefs.current.set(record.id, el)
+                        else cardRefs.current.delete(record.id)
+                      }}
+                      className={`hover:shadow-md transition-all duration-300 ${highlightedId === record.id
+                        ? 'ring-2 ring-blue-500 ring-offset-2 shadow-lg bg-blue-50/50'
+                        : ''
+                        }`}
+                      style={highlightedId === record.id ? {
+                        animation: 'blink-border 0.8s ease-in-out infinite'
+                      } : undefined}
+                    >
                       <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
                         <div className="flex items-center gap-3">
                           <div className="p-2 bg-blue-50 rounded-lg">

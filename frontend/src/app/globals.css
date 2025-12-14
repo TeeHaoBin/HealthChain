@@ -174,3 +174,13 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Blinking border animation for highlighted records */
+@keyframes blink-border {
+  0%, 100% {
+    box-shadow: 0 0 0 2px rgb(59 130 246), 0 0 15px rgb(59 130 246 / 0.5);
+  }
+  50% {
+    box-shadow: 0 0 0 2px rgb(59 130 246 / 0.3), 0 0 5px rgb(59 130 246 / 0.2);
+  }
+}
