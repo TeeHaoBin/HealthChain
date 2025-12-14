@@ -135,9 +135,11 @@ export default function PatientRecordsPage() {
                 <Tabs defaultValue="all" value={filterType} onValueChange={setFilterType} className="w-full sm:w-auto">
                   <TabsList>
                     <TabsTrigger value="all">All</TabsTrigger>
+                    <TabsTrigger value="general">General</TabsTrigger>
                     <TabsTrigger value="lab-result">Labs</TabsTrigger>
-                    <TabsTrigger value="prescription">Rx</TabsTrigger>
+                    <TabsTrigger value="prescription">Prescriptions</TabsTrigger>
                     <TabsTrigger value="imaging">Imaging</TabsTrigger>
+                    <TabsTrigger value="discharge-summary">Discharge</TabsTrigger>
                   </TabsList>
                 </Tabs>
               </div>
