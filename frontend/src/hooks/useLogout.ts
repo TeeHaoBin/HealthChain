@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useDisconnect } from 'wagmi'
 import { supabase } from '@/lib/supabase/client'
 import { logoutStateManager } from '@/lib/auth/logoutState'
+import { litClient } from '@/lib/lit/client'
 
 interface LogoutState {
   isLoggingOut: boolean
@@ -185,6 +186,9 @@ export function useLogout() {
           return new Promise((resolve, reject) => {
             try {
               disconnect()
+              // Clear Lit Protocol session (cached authSig)
+              litClient.disconnect().catch(err => console.error('Failed to disconnect Lit client:', err))
+
               // Give wallet time to disconnect
               setTimeout(() => resolve(), 500)
             } catch (error) {
