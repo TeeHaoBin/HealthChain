@@ -26,7 +26,7 @@ interface AccessRequestTableProps {
   processingStep?: string
 }
 
-type StatusFilter = "all" | "pending" | "approved" | "declined" | "expired"
+type StatusFilter = "all" | "pending" | "approved" | "declined" | "expired" | "revoked"
 
 // Helper to normalize DB status to display status
 function getDisplayStatus(status: string): StatusFilter {
@@ -40,8 +40,9 @@ function getDisplayStatus(status: string): StatusFilter {
     case "rejected":
       return "declined"
     case "expired":
-    case "revoked":
       return "expired"
+    case "revoked":
+      return "revoked"
     default:
       return "pending"
   }
@@ -59,6 +60,8 @@ function getStatusBadge(status: string) {
       return <Badge variant="secondary" className="bg-red-100 text-red-800">Declined</Badge>
     case "expired":
       return <Badge variant="secondary" className="bg-gray-100 text-gray-800">Expired</Badge>
+    case "revoked":
+      return <Badge variant="secondary" className="bg-slate-100 text-slate-800 border-slate-200">Revoked</Badge>
     default:
       return <Badge variant="secondary">{status}</Badge>
   }
@@ -100,9 +103,23 @@ export default function AccessRequestTable({
   // Filter requests based on search and status
   const filteredRequests = useMemo(() => {
     return requests.filter(request => {
-      // Status filter
-      if (statusFilter !== "all") {
-        const displayStatus = getDisplayStatus(request.status)
+      const displayStatus = getDisplayStatus(request.status)
+
+      // COMPROMISE STRATEGY:
+      // 1. Pending Tab: Hide "revoked" OR any "deleted" documents
+      const hasDeletedDoc = request.document_names?.some(n => n.includes("(Deleted)"))
+      const isImpliedRevoked = displayStatus === "pending" && hasDeletedDoc
+
+      if (statusFilter === "pending") {
+        if (displayStatus !== "pending") return false
+        if (hasDeletedDoc) return false
+      }
+      // 2. Revoked Tab: Show explicit revoked AND implied revoked
+      else if (statusFilter === "revoked") {
+        if (displayStatus !== "revoked" && !isImpliedRevoked) return false
+      }
+      // 3. Other Tabs: strict match
+      else if (statusFilter !== "all") {
         if (displayStatus !== statusFilter) return false
       }
 
@@ -112,10 +129,13 @@ export default function AccessRequestTable({
         const doctorName = request.doctor_name?.toLowerCase() || ""
         const doctorWallet = request.doctor_wallet.toLowerCase()
         const purpose = request.purpose.toLowerCase()
+        // Also allow searching by document name
+        const docNames = request.document_names?.join(" ").toLowerCase() || ""
 
         if (!doctorName.includes(search) &&
           !doctorWallet.includes(search) &&
-          !purpose.includes(search)) {
+          !purpose.includes(search) &&
+          !docNames.includes(search)) {
           return false
         }
       }
@@ -127,10 +147,21 @@ export default function AccessRequestTable({
   // Calculate statistics
   const stats = useMemo(() => {
     return {
-      pending: requests.filter(r => getDisplayStatus(r.status) === "pending").length,
+      pending: requests.filter(r => {
+        // Only count as pending if it's NOT revoked and NOT deleted
+        const isPendingInfo = getDisplayStatus(r.status) === "pending"
+        const hasDeletedDoc = r.document_names?.some(n => n.includes("(Deleted)"))
+        return isPendingInfo && !hasDeletedDoc
+      }).length,
       approved: requests.filter(r => getDisplayStatus(r.status) === "approved").length,
       declined: requests.filter(r => getDisplayStatus(r.status) === "declined").length,
       expired: requests.filter(r => getDisplayStatus(r.status) === "expired").length,
+      revoked: requests.filter(r => {
+        // Count explicit revoked status OR pending-but-deleted-doc
+        const status = getDisplayStatus(r.status)
+        const hasDeletedDoc = r.document_names?.some(n => n.includes("(Deleted)"))
+        return status === "revoked" || (status === "pending" && hasDeletedDoc)
+      }).length,
       total: requests.length
     }
   }, [requests])
@@ -162,21 +193,12 @@ export default function AccessRequestTable({
   const isPending = (status: string) => getDisplayStatus(status) === "pending"
 
   if (loading) {
+    // ... (Loading state unchanged) 
     return (
       <div className="space-y-6">
         <Card className="p-6 animate-pulse">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {[1, 2, 3].map(i => (
-              <div key={i} className="h-20 bg-gray-100 rounded-lg" />
-            ))}
-          </div>
-        </Card>
-        <Card className="p-6 animate-pulse">
-          <div className="h-8 bg-gray-100 rounded w-1/4 mb-4" />
           <div className="space-y-3">
-            {[1, 2, 3].map(i => (
-              <div key={i} className="h-12 bg-gray-100 rounded" />
-            ))}
+            <div className="h-12 bg-gray-100 rounded" />
           </div>
         </Card>
       </div>
@@ -187,7 +209,7 @@ export default function AccessRequestTable({
     <div className="space-y-6">
       {/* Statistics Cards */}
       <Card className="p-6">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
           <div className="text-center p-4 bg-yellow-50 rounded-lg">
             <div className="text-2xl font-bold text-yellow-600">{stats.pending}</div>
             <div className="text-sm text-yellow-700">Pending</div>
@@ -199,6 +221,11 @@ export default function AccessRequestTable({
           <div className="text-center p-4 bg-red-50 rounded-lg">
             <div className="text-2xl font-bold text-red-600">{stats.declined}</div>
             <div className="text-sm text-red-700">Declined</div>
+          </div>
+          {/* New Revoked Card */}
+          <div className="text-center p-4 bg-slate-50 rounded-lg">
+            <div className="text-2xl font-bold text-slate-600">{stats.revoked}</div>
+            <div className="text-sm text-slate-700">Revoked</div>
           </div>
           <div className="text-center p-4 bg-gray-50 rounded-lg">
             <div className="text-2xl font-bold text-gray-600">{stats.total}</div>
@@ -213,7 +240,7 @@ export default function AccessRequestTable({
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <Input
-              placeholder="Search by doctor name, wallet, or reason..."
+              placeholder="Search by doctor name, wallet, or document..."
               className="pl-10"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -225,7 +252,7 @@ export default function AccessRequestTable({
               <TabsTrigger value="pending">Pending</TabsTrigger>
               <TabsTrigger value="approved">Approved</TabsTrigger>
               <TabsTrigger value="declined">Declined</TabsTrigger>
-              <TabsTrigger value="expired">Expired</TabsTrigger>
+              <TabsTrigger value="revoked">Revoked</TabsTrigger>
             </TabsList>
           </Tabs>
         </div>
@@ -306,7 +333,13 @@ export default function AccessRequestTable({
                     </TooltipProvider>
                   </td>
                   <td className="py-3 px-4">
-                    {getStatusBadge(request.status)}
+                    {/* Render Revoked badge if implicit revoked (pending + deleted doc) */}
+                    {getStatusBadge(
+                      (getDisplayStatus(request.status) === "pending" &&
+                        request.document_names?.some(n => n.includes("(Deleted)")))
+                        ? "revoked"
+                        : request.status
+                    )}
                   </td>
                   <td className="py-3 px-4">
                     <span className="text-sm text-gray-600">

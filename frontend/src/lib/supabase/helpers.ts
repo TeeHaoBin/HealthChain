@@ -576,13 +576,27 @@ export async function getAccessRequestsWithDoctor(
     }
 
     // Combine requests with doctor names and document names
-    return requests.map(request => ({
-      ...request,
-      doctor_name: doctorMap.get(request.doctor_wallet) || undefined,
-      document_names: request.requested_record_ids?.map(
-        (id: string) => recordMap.get(id) || 'Unknown Document'
-      )
-    }))
+    return requests.map(request => {
+      // Logic: Use live record title if available, otherwise fallback to snapshot
+      const documentNames = request.requested_record_ids?.map((id: string, index: number) => {
+        const liveTitle = recordMap.get(id)
+
+        if (liveTitle) return liveTitle
+
+        // Fallback to snapshot if available
+        if (request.snapshot_document_titles && request.snapshot_document_titles[index]) {
+          return `${request.snapshot_document_titles[index]} (Deleted)`
+        }
+
+        return 'Unknown Document'
+      }) || []
+
+      return {
+        ...request,
+        doctor_name: doctorMap.get(request.doctor_wallet) || undefined,
+        document_names: documentNames
+      }
+    })
   } catch (error) {
     console.error('Error fetching access requests with doctor:', error)
     return []
