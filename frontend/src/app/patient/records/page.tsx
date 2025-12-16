@@ -11,8 +11,24 @@ import { DashboardLayout } from '@/components/layout/DashboardLayout'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -46,6 +62,13 @@ export default function PatientRecordsPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [recordToDelete, setRecordToDelete] = useState<FileMetadata | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+
+  // Edit dialog state
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [recordToEdit, setRecordToEdit] = useState<FileMetadata | null>(null)
+  const [editTitle, setEditTitle] = useState("")
+  const [editRecordType, setEditRecordType] = useState("")
+  const [savingEdit, setSavingEdit] = useState(false)
 
   // Refs for scrolling to highlighted card
   const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map())
@@ -130,6 +153,64 @@ export default function PatientRecordsPage() {
     setDeleteDialogOpen(true)
   }
 
+  // Open edit dialog
+  const handleEditClick = (record: FileMetadata) => {
+    setRecordToEdit(record)
+    setEditTitle(record.title)
+    setEditRecordType(record.recordType)
+    setEditDialogOpen(true)
+  }
+
+  // Confirm and execute edit
+  const confirmEdit = async () => {
+    if (!recordToEdit || !address) return
+
+    // Validate title
+    if (!editTitle.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Document title cannot be empty.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      setSavingEdit(true)
+
+      const result = await fileUploadService.updateRecord(recordToEdit.id, address, {
+        title: editTitle.trim(),
+        recordType: editRecordType,
+      })
+
+      if (result.success) {
+        // Update local state
+        setRecords(prev => prev.map(r =>
+          r.id === recordToEdit.id
+            ? { ...r, title: editTitle.trim(), recordType: editRecordType }
+            : r
+        ))
+        setEditDialogOpen(false)
+        toast({
+          title: "Record Updated",
+          description: `"${editTitle.trim()}" has been updated successfully.`,
+        })
+      } else {
+        throw new Error(result.error || "Failed to update record")
+      }
+    } catch (err) {
+      console.error("Failed to update record:", err)
+      toast({
+        title: "Update Failed",
+        description: err instanceof Error ? err.message : "Failed to update record. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setSavingEdit(false)
+      setRecordToEdit(null)
+    }
+  }
+
   // Confirm and execute deletion
   const confirmDelete = async () => {
     if (!recordToDelete || !address) return
@@ -145,7 +226,7 @@ export default function PatientRecordsPage() {
         setRecords(prev => prev.filter(r => r.id !== recordToDelete.id))
         toast({
           title: "Record Deleted",
-          description: `"${recordToDelete.fileName}" has been permanently deleted.`,
+          description: `"${recordToDelete.title}" has been permanently deleted.`,
         })
       } else {
         throw new Error(result.error || "Failed to delete record")
@@ -164,7 +245,7 @@ export default function PatientRecordsPage() {
   }
 
   const filteredRecords = records.filter(record => {
-    const matchesSearch = record.fileName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    const matchesSearch = record.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       record.recordType.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesType = filterType === "all" || record.recordType === filterType
     return matchesSearch && matchesType
@@ -324,8 +405,8 @@ export default function PatientRecordsPage() {
                         </Button>
                       </CardHeader>
                       <CardContent className="pt-4">
-                        <CardTitle className="text-base font-semibold line-clamp-1 mb-1" title={record.fileName}>
-                          {record.fileName}
+                        <CardTitle className="text-base font-semibold line-clamp-1 mb-1" title={record.title}>
+                          {record.title}
                         </CardTitle>
                         <CardDescription className="flex items-center gap-2 text-xs">
                           <Calendar className="h-3 w-3" />
@@ -340,10 +421,7 @@ export default function PatientRecordsPage() {
                             variant="outline"
                             size="sm"
                             className="flex-1 gap-1 text-blue-600 border-blue-200 hover:bg-blue-50 hover:border-blue-300"
-                            onClick={() => {
-                              // TODO: Implement edit functionality
-                              console.log('Edit record:', record.id)
-                            }}
+                            onClick={() => handleEditClick(record)}
                           >
                             <Pencil className="h-3 w-3" />
                             Edit
@@ -380,7 +458,7 @@ export default function PatientRecordsPage() {
               <AlertDialogDescription asChild>
                 <div className="text-sm text-gray-500">
                   <p>
-                    Are you sure you want to delete <strong>&quot;{recordToDelete?.fileName}&quot;</strong>?
+                    Are you sure you want to delete <strong>&quot;{recordToDelete?.title}&quot;</strong>?
                   </p>
                   <p className="mt-3">
                     This action cannot be undone. The file will be permanently removed from your health records and IPFS storage.
@@ -402,6 +480,72 @@ export default function PatientRecordsPage() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {/* Edit Record Dialog */}
+        <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Edit Health Record</DialogTitle>
+              <DialogDescription>
+                Update the document title and record type. Click save when you&apos;re done.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="edit-title">Document Title</Label>
+                <Input
+                  id="edit-title"
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  placeholder="Enter document title"
+                  disabled={savingEdit}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="edit-record-type">Record Type</Label>
+                <Select
+                  value={editRecordType}
+                  onValueChange={setEditRecordType}
+                  disabled={savingEdit}
+                >
+                  <SelectTrigger id="edit-record-type">
+                    <SelectValue placeholder="Select record type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="general">General Health Record</SelectItem>
+                    <SelectItem value="lab-result">Lab Result</SelectItem>
+                    <SelectItem value="prescription">Prescription</SelectItem>
+                    <SelectItem value="imaging">Medical Imaging</SelectItem>
+                    <SelectItem value="discharge-summary">Discharge Summary</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setEditDialogOpen(false)}
+                disabled={savingEdit}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={confirmEdit}
+                disabled={savingEdit}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                {savingEdit ? (
+                  <>
+                    <span className="animate-spin mr-2">⌛</span>
+                    Saving...
+                  </>
+                ) : (
+                  'Save Changes'
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </DashboardLayout>
     </RoleGuard>
   )

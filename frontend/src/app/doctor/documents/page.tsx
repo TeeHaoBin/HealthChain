@@ -121,7 +121,7 @@ export default function DoctorDocumentsPage() {
 
     const filteredFiles = files.filter(file => {
         const matchesSearch =
-            file.fileName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            file.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
             file.fileType.toLowerCase().includes(searchTerm.toLowerCase()) ||
             file.patientAddress.toLowerCase().includes(searchTerm.toLowerCase())
 
@@ -280,8 +280,8 @@ export default function DoctorDocumentsPage() {
                                                 </Button>
                                             </CardHeader>
                                             <CardContent className="pt-4">
-                                                <CardTitle className="text-base font-semibold line-clamp-1 mb-1" title={file.fileName}>
-                                                    {file.fileName}
+                                                <CardTitle className="text-base font-semibold line-clamp-1 mb-1" title={file.title}>
+                                                    {file.title}
                                                 </CardTitle>
                                                 <div className="text-sm text-gray-600 flex flex-col gap-1 text-xs">
                                                     <div className="flex items-center gap-2">

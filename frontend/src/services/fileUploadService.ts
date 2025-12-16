@@ -11,7 +11,7 @@ export interface UploadResult {
 
 export interface FileMetadata {
   id: string
-  fileName: string
+  title: string  // Primary editable display name (was fileName)
   fileType: string
   fileSize: number
   ipfsHash: string
@@ -129,7 +129,7 @@ export class FileUploadService {
         uploaded_at: new Date().toISOString(),
 
         // New columns for encryption (added by our fix)
-        file_name: file.name,
+        // Note: file_name column is deprecated, using title as primary display name
         file_type: file.type,
         ipfs_hash: ipfsHash,
         encrypted_symmetric_key: encryptedSymmetricKey,
@@ -191,7 +191,7 @@ export class FileUploadService {
 
         return {
           id: record.id,
-          fileName: record.file_name || record.original_filename,
+          title: record.title || record.original_filename, // Primary display name with fallback
           fileType: record.file_type || record.mime_type,
           fileSize: record.file_size,
           ipfsHash: record.ipfs_hash,
@@ -231,7 +231,7 @@ export class FileUploadService {
 
         return {
           id: record.id,
-          fileName: record.file_name || record.original_filename,
+          title: record.title || record.original_filename, // Primary display name with fallback
           fileType: record.file_type || record.mime_type,
           fileSize: record.file_size,
           ipfsHash: record.ipfs_hash,
@@ -356,11 +356,11 @@ export class FileUploadService {
       // Convert decrypted result to File for re-encryption
       let decryptedFile: File
       if (decryptedBlob instanceof Blob) {
-        decryptedFile = new File([decryptedBlob], record.file_name || 'decrypted_file', {
+        decryptedFile = new File([decryptedBlob], record.title || record.original_filename || 'decrypted_file', {
           type: record.mime_type || 'application/octet-stream'
         })
       } else {
-        decryptedFile = new File([decryptedBlob], record.file_name || 'decrypted_file', {
+        decryptedFile = new File([decryptedBlob], record.title || record.original_filename || 'decrypted_file', {
           type: record.mime_type || 'application/octet-stream'
         })
       }
@@ -385,7 +385,7 @@ export class FileUploadService {
       // Step 5: Upload new encrypted file to IPFS
       const newIpfsHash = await ipfsClient.uploadEncryptedFile(
         encryptionResult.encryptedData,
-        record.file_name || 'health_record',
+        record.title || record.original_filename || 'health_record',
         {
           patientAddress,
           authorizedDoctors: updatedDoctors,
@@ -451,7 +451,7 @@ export class FileUploadService {
       }
 
       console.log('📄 Metadata retrieved:', {
-        fileName: record.file_name,
+        title: record.title,
         ipfsHash: record.ipfs_hash,
         hasKey: !!record.encrypted_symmetric_key
       })
@@ -598,6 +598,110 @@ export class FileUploadService {
     console.error('💡 For public IPFS, files should be accessible within 1-2 minutes of upload.')
 
     return null
+  }
+
+  /**
+   * Update a health record's metadata (title and/or record_type)
+   * Only the patient who owns the record can update it.
+   */
+  async updateRecord(
+    recordId: string,
+    patientWallet: string,
+    updates: { title?: string; recordType?: string }
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      console.log('📝 Updating record metadata:', recordId)
+
+      // Step 1: Fetch record to verify ownership
+      const { data: record, error: fetchError } = await supabase
+        .from('health_records')
+        .select('patient_wallet')
+        .eq('id', recordId)
+        .single()
+
+      if (fetchError || !record) {
+        throw new Error(`Record not found: ${fetchError?.message || 'Unknown error'}`)
+      }
+
+      // Verify ownership
+      if (record.patient_wallet.toLowerCase() !== patientWallet.toLowerCase()) {
+        throw new Error('Unauthorized: You can only update your own records')
+      }
+
+      // Step 2: Build update object with only provided fields
+      const updateData: Record<string, string> = {}
+      if (updates.title !== undefined) {
+        updateData.title = updates.title
+      }
+      if (updates.recordType !== undefined) {
+        updateData.record_type = updates.recordType
+      }
+
+      if (Object.keys(updateData).length === 0) {
+        return { success: true } // Nothing to update
+      }
+
+      // Step 3: Update the record in Supabase
+      const { error: updateError } = await supabase
+        .from('health_records')
+        .update(updateData)
+        .eq('id', recordId)
+
+      if (updateError) {
+        throw new Error(`Update failed: ${updateError.message}`)
+      }
+
+      // Step 4: Update snapshot_document_titles in access_requests if title changed
+      // This ensures deleted documents show the last known name, not the original name
+      if (updates.title !== undefined) {
+        console.log('📋 Updating access request snapshots...')
+
+        // Find all access requests that reference this record
+        const { data: accessRequests, error: fetchRequestsError } = await supabase
+          .from('access_requests')
+          .select('id, requested_record_ids, snapshot_document_titles')
+          .contains('requested_record_ids', [recordId])
+
+        if (fetchRequestsError) {
+          console.warn('⚠️ Failed to fetch access requests for snapshot update:', fetchRequestsError)
+          // Don't throw - the main update succeeded, this is just a cleanup
+        } else if (accessRequests && accessRequests.length > 0) {
+          // Update each access request's snapshot
+          for (const request of accessRequests) {
+            const recordIds = request.requested_record_ids || []
+            const snapshots = request.snapshot_document_titles || []
+
+            // Find the index of this record in the array
+            const recordIndex = recordIds.indexOf(recordId)
+            if (recordIndex !== -1 && snapshots.length > recordIndex) {
+              // Update the snapshot at this index
+              const updatedSnapshots = [...snapshots]
+              updatedSnapshots[recordIndex] = updates.title
+
+              const { error: snapshotUpdateError } = await supabase
+                .from('access_requests')
+                .update({ snapshot_document_titles: updatedSnapshots })
+                .eq('id', request.id)
+
+              if (snapshotUpdateError) {
+                console.warn(`⚠️ Failed to update snapshot for request ${request.id}:`, snapshotUpdateError)
+              }
+            }
+          }
+          console.log(`✅ Updated snapshots for ${accessRequests.length} access request(s)`)
+        }
+      }
+
+      console.log('✅ Record metadata updated successfully')
+      return { success: true }
+
+    } catch (error) {
+      console.error('❌ Record update failed:', error)
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error occurred'
+      }
+    }
   }
 
   /**
