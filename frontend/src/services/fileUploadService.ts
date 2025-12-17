@@ -120,6 +120,7 @@ export class FileUploadService {
         // Use your existing columns
         patient_wallet: patientAddress.toLowerCase(), // Your table uses patient_wallet
         title: file.name, // Map to your existing title column
+        file_name: file.name, // Required by database NOT NULL constraint
         description: `Encrypted health record: ${recordType}`,
         record_type: recordType,
         record_date: new Date().toISOString().split('T')[0], // Date only
@@ -128,8 +129,7 @@ export class FileUploadService {
         mime_type: file.type,
         uploaded_at: new Date().toISOString(),
 
-        // New columns for encryption (added by our fix)
-        // Note: file_name column is deprecated, using title as primary display name
+        // New columns for encryption
         file_type: file.type,
         ipfs_hash: ipfsHash,
         encrypted_symmetric_key: encryptedSymmetricKey,
