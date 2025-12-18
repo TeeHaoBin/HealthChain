@@ -305,14 +305,9 @@ export default function PatientRequestsPage() {
 
   // Get status badge for transfer requests
   const getTransferStatusBadge = (request: TransferRequestWithNames) => {
-    if (request.patient_status === 'pending') {
-      return <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200"><Clock className="h-3 w-3 mr-1" />Pending Your Approval</Badge>
-    }
-    if (request.patient_status === 'denied') {
-      return <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200"><XCircle className="h-3 w-3 mr-1" />Denied</Badge>
-    }
-    if (request.source_status === 'uploaded' && request.patient_status === 'approved') {
-      return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200"><Clock className="h-3 w-3 mr-1" />Processing</Badge>
+    // Check source-level statuses first (these take precedence)
+    if (request.source_status === 'rejected') {
+      return <Badge variant="outline" className="bg-gray-50 text-gray-700 border-gray-200"><XCircle className="h-3 w-3 mr-1" />Provider Rejected</Badge>
     }
     if (request.source_status === 'granted') {
       return <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200"><CheckCircle2 className="h-3 w-3 mr-1" />Completed</Badge>
@@ -320,6 +315,18 @@ export default function PatientRequestsPage() {
     if (request.source_status === 'failed') {
       return <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200"><XCircle className="h-3 w-3 mr-1" />Failed</Badge>
     }
+
+    // Then check patient-level statuses
+    if (request.patient_status === 'denied') {
+      return <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200"><XCircle className="h-3 w-3 mr-1" />You Denied</Badge>
+    }
+    if (request.source_status === 'uploaded' && request.patient_status === 'approved') {
+      return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200"><Clock className="h-3 w-3 mr-1" />Processing</Badge>
+    }
+    if (request.source_status === 'uploaded' && request.patient_status === 'pending') {
+      return <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200"><Clock className="h-3 w-3 mr-1" />Pending Your Approval</Badge>
+    }
+
     return null
   }
 
@@ -453,7 +460,7 @@ export default function PatientRequestsPage() {
                         <div className="flex flex-col items-end gap-2">
                           {getTransferStatusBadge(request)}
 
-                          {request.patient_status === 'pending' && (
+                          {request.patient_status === 'pending' && request.source_status === 'uploaded' && (
                             <div className="flex gap-2 mt-2">
                               <Button
                                 size="sm"
@@ -485,6 +492,12 @@ export default function PatientRequestsPage() {
                           {request.patient_status === 'denied' && request.patient_denial_reason && (
                             <p className="text-xs text-gray-500 max-w-48 text-right">
                               Reason: {request.patient_denial_reason}
+                            </p>
+                          )}
+
+                          {request.source_status === 'rejected' && request.source_rejection_reason && (
+                            <p className="text-xs text-gray-500 max-w-48 text-right">
+                              Provider reason: {request.source_rejection_reason}
                             </p>
                           )}
                         </div>
