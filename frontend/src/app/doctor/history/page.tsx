@@ -36,6 +36,8 @@ import {
   createTransferRequest,
   rejectTransferRequest,
   attachDocumentToTransfer,
+  getDoctorProfileByWallet,
+  getUserByWallet,
   TransferRequestWithNames
 } from '@/lib/supabase/helpers'
 import { fileUploadService } from '@/services/fileUploadService'
@@ -54,12 +56,21 @@ export default function DoctorHistoryPage() {
   const [newRequestData, setNewRequestData] = useState({
     patientWallet: '',
     sourceWallet: '',
-    sourceOrganization: '',
     documentDescription: '',
     purpose: '',
     urgency: 'routine' as 'routine' | 'urgent' | 'emergency'
   })
   const [submittingRequest, setSubmittingRequest] = useState(false)
+
+  // Auto-fetched source organization
+  const [fetchedSourceOrg, setFetchedSourceOrg] = useState<string | null>(null)
+  const [fetchingSourceOrg, setFetchingSourceOrg] = useState(false)
+
+  // Auto-fetched names for wallet verification
+  const [fetchedPatientName, setFetchedPatientName] = useState<string | null>(null)
+  const [fetchingPatientName, setFetchingPatientName] = useState(false)
+  const [fetchedSourceDoctorName, setFetchedSourceDoctorName] = useState<string | null>(null)
+  const [fetchingSourceDoctorName, setFetchingSourceDoctorName] = useState(false)
 
   // Rejection modal
   const [rejectingRequest, setRejectingRequest] = useState<TransferRequestWithNames | null>(null)
@@ -95,6 +106,63 @@ export default function DoctorHistoryPage() {
       fetchTransferRequests()
     }
   }, [isConnected, address, fetchTransferRequests])
+
+  // Auto-fetch patient name when patient wallet is valid
+  useEffect(() => {
+    const fetchPatientName = async () => {
+      const isValid = /^0x[a-fA-F0-9]{40}$/.test(newRequestData.patientWallet)
+      if (!newRequestData.patientWallet || !isValid) {
+        setFetchedPatientName(null)
+        return
+      }
+
+      setFetchingPatientName(true)
+      try {
+        const user = await getUserByWallet(newRequestData.patientWallet.toLowerCase())
+        setFetchedPatientName(user?.full_name || null)
+      } catch (error) {
+        console.error('Error fetching patient name:', error)
+        setFetchedPatientName(null)
+      } finally {
+        setFetchingPatientName(false)
+      }
+    }
+
+    fetchPatientName()
+  }, [newRequestData.patientWallet])
+
+  // Auto-fetch source doctor name and organization when source wallet is valid
+  useEffect(() => {
+    const fetchSourceInfo = async () => {
+      const isValid = /^0x[a-fA-F0-9]{40}$/.test(newRequestData.sourceWallet)
+      if (!newRequestData.sourceWallet || !isValid) {
+        setFetchedSourceOrg(null)
+        setFetchedSourceDoctorName(null)
+        return
+      }
+
+      setFetchingSourceOrg(true)
+      setFetchingSourceDoctorName(true)
+      try {
+        // Fetch user for name
+        const user = await getUserByWallet(newRequestData.sourceWallet.toLowerCase())
+        setFetchedSourceDoctorName(user?.full_name || null)
+
+        // Fetch doctor profile for organization
+        const profile = await getDoctorProfileByWallet(newRequestData.sourceWallet.toLowerCase())
+        setFetchedSourceOrg(profile?.hospital_name || null)
+      } catch (error) {
+        console.error('Error fetching source doctor info:', error)
+        setFetchedSourceOrg(null)
+        setFetchedSourceDoctorName(null)
+      } finally {
+        setFetchingSourceOrg(false)
+        setFetchingSourceDoctorName(false)
+      }
+    }
+
+    fetchSourceInfo()
+  }, [newRequestData.sourceWallet])
 
   // Wallet address validation (matches DB constraint: ^0x[a-f0-9]{40}$)
   const isValidWallet = (wallet: string) => /^0x[a-fA-F0-9]{40}$/.test(wallet)
@@ -144,7 +212,7 @@ export default function DoctorHistoryPage() {
         patient_wallet: newRequestData.patientWallet.toLowerCase(),
         requesting_doctor_wallet: address,
         source_doctor_wallet: newRequestData.sourceWallet.toLowerCase(),
-        source_organization: newRequestData.sourceOrganization || undefined,
+        source_organization: fetchedSourceOrg || undefined,
         document_description: newRequestData.documentDescription,
         purpose: newRequestData.purpose,
         urgency: newRequestData.urgency
@@ -159,11 +227,13 @@ export default function DoctorHistoryPage() {
         setNewRequestData({
           patientWallet: '',
           sourceWallet: '',
-          sourceOrganization: '',
           documentDescription: '',
           purpose: '',
           urgency: 'routine'
         })
+        setFetchedSourceOrg(null)
+        setFetchedPatientName(null)
+        setFetchedSourceDoctorName(null)
         fetchTransferRequests()
       } else {
         throw new Error('Failed to create request')
@@ -531,6 +601,17 @@ export default function DoctorHistoryPage() {
                   {newRequestData.patientWallet && !isValidWallet(newRequestData.patientWallet) && (
                     <p className="text-sm text-red-500 mt-1">Must be a valid Ethereum address (0x + 40 hex characters)</p>
                   )}
+                  {newRequestData.patientWallet && isValidWallet(newRequestData.patientWallet) && (
+                    <p className="text-sm text-gray-500 mt-1 flex items-center gap-1">
+                      {fetchingPatientName ? (
+                        <><Loader2 className="h-3 w-3 animate-spin" /> Looking up patient...</>
+                      ) : fetchedPatientName ? (
+                        <>Patient's Name: <span className="font-medium text-gray-700">{fetchedPatientName}</span></>
+                      ) : (
+                        <span className="text-gray-400 italic">Patient not found in system</span>
+                      )}
+                    </p>
+                  )}
                 </div>
                 <div>
                   <Label htmlFor="sourceWallet">Source Provider Wallet Address *</Label>
@@ -544,15 +625,30 @@ export default function DoctorHistoryPage() {
                   {newRequestData.sourceWallet && !isValidWallet(newRequestData.sourceWallet) && (
                     <p className="text-sm text-red-500 mt-1">Must be a valid Ethereum address (0x + 40 hex characters)</p>
                   )}
-                </div>
-                <div>
-                  <Label htmlFor="sourceOrg">Source Organization (optional)</Label>
-                  <Input
-                    id="sourceOrg"
-                    placeholder="Hospital name..."
-                    value={newRequestData.sourceOrganization}
-                    onChange={(e) => setNewRequestData({ ...newRequestData, sourceOrganization: e.target.value })}
-                  />
+                  {newRequestData.sourceWallet && isValidWallet(newRequestData.sourceWallet) && (
+                    <div className="text-sm text-gray-500 mt-1 space-y-0.5">
+                      <p>
+                        {fetchingSourceDoctorName ? (
+                          <span className="flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" /> Looking up provider...</span>
+                        ) : fetchedSourceDoctorName ? (
+                          <><span className="inline-block w-[175px]">Source Provider's Name:</span><span className="font-medium text-gray-700">{fetchedSourceDoctorName}</span></>
+                        ) : (
+                          <span className="text-gray-400 italic">Provider not found in system</span>
+                        )}
+                      </p>
+                      {(fetchingSourceOrg || fetchedSourceOrg || fetchedSourceDoctorName) && (
+                        <p>
+                          {fetchingSourceOrg ? (
+                            <span className="flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" /> Looking up organization...</span>
+                          ) : fetchedSourceOrg ? (
+                            <><span className="inline-block w-[175px]">Source Organization:</span><span className="font-medium text-gray-700">{fetchedSourceOrg}</span></>
+                          ) : (
+                            <><span className="inline-block w-[175px]">Source Organization:</span><span className="text-gray-400 italic">Not available</span></>
+                          )}
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <div>
                   <Label htmlFor="docDesc">Document Description *</Label>

@@ -277,6 +277,35 @@ export async function getDoctorProfile(userId: string): Promise<DoctorProfile | 
   }
 }
 
+/**
+ * Get doctor profile by wallet address
+ * Used for auto-fetching organization (hospital_name) when creating transfer requests
+ */
+export async function getDoctorProfileByWallet(walletAddress: string): Promise<DoctorProfile | null> {
+  try {
+    // First get the user by wallet address
+    const user = await getUserByWallet(walletAddress)
+    if (!user) return null
+
+    // Then get the doctor profile by user_id
+    const { data, error } = await supabase
+      .from('doctor_profiles')
+      .select('*')
+      .eq('user_id', user.id)
+      .single()
+
+    if (error) {
+      if (error.code === 'PGRST116') return null
+      throw error
+    }
+
+    return data
+  } catch (error) {
+    console.error('Error fetching doctor profile by wallet:', error)
+    return null
+  }
+}
+
 // Patient Profile Management
 export async function createPatientProfile(profileData: {
   user_id: string
