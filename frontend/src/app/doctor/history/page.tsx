@@ -28,7 +28,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { useToast } from '@/components/ui/use-toast'
-import { Shield, Plus, Upload, XCircle, Loader2, Clock, CheckCircle2, FileText, User, RefreshCw, Send } from 'lucide-react'
+import { Shield, Plus, Upload, XCircle, Loader2, Clock, CheckCircle2, FileText, User, RefreshCw, Send, Search } from 'lucide-react'
 import WalletConnect from '@/components/auth/WalletConnect'
 import {
   getTransferRequestsForSourceDoctor,
@@ -50,6 +50,14 @@ export default function DoctorHistoryPage() {
   const [myRequests, setMyRequests] = useState<TransferRequestWithNames[]>([])
   const [incomingRequests, setIncomingRequests] = useState<TransferRequestWithNames[]>([])
   const [loadingTransfers, setLoadingTransfers] = useState(false)
+
+  // Search and filter state for "Requested by Me" tab
+  const [mySearchTerm, setMySearchTerm] = useState('')
+  const [myStatusFilter, setMyStatusFilter] = useState<'all' | 'awaiting' | 'pending' | 'completed' | 'providerRejected' | 'patientDenied'>('all')
+
+  // Search and filter state for "Requested from Me" tab
+  const [incomingSearchTerm, setIncomingSearchTerm] = useState('')
+  const [incomingStatusFilter, setIncomingStatusFilter] = useState<'all' | 'awaiting' | 'uploaded' | 'rejected'>('all')
 
   // New request modal
   const [showNewRequestModal, setShowNewRequestModal] = useState(false)
@@ -377,6 +385,61 @@ export default function DoctorHistoryPage() {
   const pendingMyCount = myRequests.filter(r => r.source_status === 'awaiting_upload' || r.source_status === 'uploaded').length
   const pendingIncomingCount = incomingRequests.filter(r => r.source_status === 'awaiting_upload').length
 
+  // Filter logic for "Requested by Me" tab
+  const getMyRequestDisplayStatus = (request: TransferRequestWithNames): 'awaiting' | 'pending' | 'completed' | 'providerRejected' | 'patientDenied' => {
+    if (request.source_status === 'rejected') return 'providerRejected'
+    if (request.patient_status === 'denied') return 'patientDenied'
+    if (request.source_status === 'awaiting_upload') return 'awaiting'
+    if (request.source_status === 'uploaded' && request.patient_status === 'pending') return 'pending'
+    if (request.patient_status === 'approved' || request.source_status === 'granted') return 'completed'
+    return 'pending'
+  }
+
+  const filteredMyRequests = myRequests.filter(request => {
+    if (myStatusFilter !== 'all' && getMyRequestDisplayStatus(request) !== myStatusFilter) return false
+    if (mySearchTerm) {
+      const search = mySearchTerm.toLowerCase()
+      const matchesSource = request.source_doctor_name?.toLowerCase().includes(search) || request.source_doctor_wallet.toLowerCase().includes(search)
+      const matchesPatient = request.patient_name?.toLowerCase().includes(search) || request.patient_wallet.toLowerCase().includes(search)
+      if (!matchesSource && !matchesPatient) return false
+    }
+    return true
+  })
+
+  const myFilterCounts = {
+    all: myRequests.length,
+    awaiting: myRequests.filter(r => getMyRequestDisplayStatus(r) === 'awaiting').length,
+    pending: myRequests.filter(r => getMyRequestDisplayStatus(r) === 'pending').length,
+    completed: myRequests.filter(r => getMyRequestDisplayStatus(r) === 'completed').length,
+    providerRejected: myRequests.filter(r => getMyRequestDisplayStatus(r) === 'providerRejected').length,
+    patientDenied: myRequests.filter(r => getMyRequestDisplayStatus(r) === 'patientDenied').length
+  }
+
+  // Filter logic for "Requested from Me" tab
+  const getIncomingDisplayStatus = (request: TransferRequestWithNames): 'awaiting' | 'uploaded' | 'rejected' => {
+    if (request.source_status === 'rejected') return 'rejected'
+    if (request.source_status === 'awaiting_upload') return 'awaiting'
+    return 'uploaded'
+  }
+
+  const filteredIncomingRequests = incomingRequests.filter(request => {
+    if (incomingStatusFilter !== 'all' && getIncomingDisplayStatus(request) !== incomingStatusFilter) return false
+    if (incomingSearchTerm) {
+      const search = incomingSearchTerm.toLowerCase()
+      const matchesRequester = request.requesting_doctor_name?.toLowerCase().includes(search) || request.requesting_doctor_wallet.toLowerCase().includes(search)
+      const matchesPatient = request.patient_name?.toLowerCase().includes(search) || request.patient_wallet.toLowerCase().includes(search)
+      if (!matchesRequester && !matchesPatient) return false
+    }
+    return true
+  })
+
+  const incomingFilterCounts = {
+    all: incomingRequests.length,
+    awaiting: incomingRequests.filter(r => getIncomingDisplayStatus(r) === 'awaiting').length,
+    uploaded: incomingRequests.filter(r => getIncomingDisplayStatus(r) === 'uploaded').length,
+    rejected: incomingRequests.filter(r => getIncomingDisplayStatus(r) === 'rejected').length
+  }
+
   return (
     <RoleGuard allowedRoles={['doctor']}>
       <DashboardLayout>
@@ -424,7 +487,17 @@ export default function DoctorHistoryPage() {
 
               {/* Requested by Me Tab - Doctor B's view */}
               <TabsContent value="requested-by-me">
-                <div className="flex justify-between mb-4">
+                {/* Search and Filter Controls */}
+                <div className="flex flex-col sm:flex-row gap-4 mb-4">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Input
+                      placeholder="Search by provider name, patient, or wallet..."
+                      className="pl-10"
+                      value={mySearchTerm}
+                      onChange={(e) => setMySearchTerm(e.target.value)}
+                    />
+                  </div>
                   <Button variant="outline" size="sm" onClick={fetchTransferRequests} disabled={loadingTransfers}>
                     <RefreshCw className={`h-4 w-4 mr-2 ${loadingTransfers ? 'animate-spin' : ''}`} />
                     Refresh
@@ -435,22 +508,38 @@ export default function DoctorHistoryPage() {
                   </Button>
                 </div>
 
+                {/* Status Filter Tabs */}
+                <Tabs value={myStatusFilter} onValueChange={(v) => setMyStatusFilter(v as typeof myStatusFilter)} className="mb-4">
+                  <TabsList className="grid w-full grid-cols-6">
+                    <TabsTrigger value="all">All ({myFilterCounts.all})</TabsTrigger>
+                    <TabsTrigger value="awaiting">Awaiting Provider ({myFilterCounts.awaiting})</TabsTrigger>
+                    <TabsTrigger value="pending">Patient Pending ({myFilterCounts.pending})</TabsTrigger>
+                    <TabsTrigger value="completed">Completed ({myFilterCounts.completed})</TabsTrigger>
+                    <TabsTrigger value="providerRejected">Provider Rejected ({myFilterCounts.providerRejected})</TabsTrigger>
+                    <TabsTrigger value="patientDenied">Patient Denied ({myFilterCounts.patientDenied})</TabsTrigger>
+                  </TabsList>
+                </Tabs>
+
                 <Card className="divide-y">
                   {loadingTransfers ? (
                     <div className="p-8 text-center">
                       <Loader2 className="h-8 w-8 animate-spin mx-auto text-gray-400" />
                       <p className="text-gray-500 mt-2">Loading...</p>
                     </div>
-                  ) : myRequests.length === 0 ? (
+                  ) : filteredMyRequests.length === 0 ? (
                     <div className="p-8 text-center">
                       <Send className="h-12 w-12 mx-auto text-gray-300 mb-3" />
-                      <p className="text-gray-500">No transfer requests yet.</p>
-                      <p className="text-sm text-gray-400 mt-1">
-                        Create a request to get documents from another provider.
+                      <p className="text-gray-500">
+                        {mySearchTerm || myStatusFilter !== 'all' ? 'No requests match your filters.' : 'No transfer requests yet.'}
                       </p>
+                      {(mySearchTerm || myStatusFilter !== 'all') && (
+                        <Button variant="outline" size="sm" className="mt-3" onClick={() => { setMySearchTerm(''); setMyStatusFilter('all'); }}>
+                          Clear Filters
+                        </Button>
+                      )}
                     </div>
                   ) : (
-                    myRequests.map((request) => (
+                    filteredMyRequests.map((request) => (
                       <div key={request.id} className="p-4 hover:bg-gray-50">
                         <div className="flex justify-between items-start">
                           <div className="flex-1">
@@ -493,12 +582,32 @@ export default function DoctorHistoryPage() {
 
               {/* Requested from Me Tab - Doctor A's view */}
               <TabsContent value="requested-from-me">
-                <div className="flex justify-end mb-4">
+                {/* Search and Filter Controls */}
+                <div className="flex flex-col sm:flex-row gap-4 mb-4">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Input
+                      placeholder="Search by requester name, patient, or wallet..."
+                      className="pl-10"
+                      value={incomingSearchTerm}
+                      onChange={(e) => setIncomingSearchTerm(e.target.value)}
+                    />
+                  </div>
                   <Button variant="outline" size="sm" onClick={fetchTransferRequests} disabled={loadingTransfers}>
                     <RefreshCw className={`h-4 w-4 mr-2 ${loadingTransfers ? 'animate-spin' : ''}`} />
                     Refresh
                   </Button>
                 </div>
+
+                {/* Status Filter Tabs */}
+                <Tabs value={incomingStatusFilter} onValueChange={(v) => setIncomingStatusFilter(v as typeof incomingStatusFilter)} className="mb-4">
+                  <TabsList className="grid w-full grid-cols-4">
+                    <TabsTrigger value="all">All ({incomingFilterCounts.all})</TabsTrigger>
+                    <TabsTrigger value="awaiting">Awaiting Upload ({incomingFilterCounts.awaiting})</TabsTrigger>
+                    <TabsTrigger value="uploaded">Uploaded ({incomingFilterCounts.uploaded})</TabsTrigger>
+                    <TabsTrigger value="rejected">You Rejected ({incomingFilterCounts.rejected})</TabsTrigger>
+                  </TabsList>
+                </Tabs>
 
                 <Card className="divide-y">
                   {loadingTransfers ? (
@@ -506,16 +615,20 @@ export default function DoctorHistoryPage() {
                       <Loader2 className="h-8 w-8 animate-spin mx-auto text-gray-400" />
                       <p className="text-gray-500 mt-2">Loading...</p>
                     </div>
-                  ) : incomingRequests.length === 0 ? (
+                  ) : filteredIncomingRequests.length === 0 ? (
                     <div className="p-8 text-center">
                       <FileText className="h-12 w-12 mx-auto text-gray-300 mb-3" />
-                      <p className="text-gray-500">No incoming requests.</p>
-                      <p className="text-sm text-gray-400 mt-1">
-                        When other doctors request documents from you, they will appear here.
+                      <p className="text-gray-500">
+                        {incomingSearchTerm || incomingStatusFilter !== 'all' ? 'No requests match your filters.' : 'No incoming requests.'}
                       </p>
+                      {(incomingSearchTerm || incomingStatusFilter !== 'all') && (
+                        <Button variant="outline" size="sm" className="mt-3" onClick={() => { setIncomingSearchTerm(''); setIncomingStatusFilter('all'); }}>
+                          Clear Filters
+                        </Button>
+                      )}
                     </div>
                   ) : (
-                    incomingRequests.map((request) => (
+                    filteredIncomingRequests.map((request) => (
                       <div key={request.id} className="p-4 hover:bg-gray-50">
                         <div className="flex justify-between items-start">
                           <div className="flex-1">
