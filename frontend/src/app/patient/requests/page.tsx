@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
+import Link from "next/link"
 import { useAccount } from "wagmi"
 import RoleGuard from '@/components/auth/RoleGuard'
 import AccessRequestTable from '@/components/shared/AccessRequestTable'
@@ -39,7 +40,8 @@ import {
   ArrowRight,
   Loader2,
   AlertCircle,
-  RefreshCw
+  RefreshCw,
+  ExternalLink
 } from "lucide-react"
 
 export default function PatientRequestsPage() {
@@ -436,8 +438,22 @@ export default function PatientRequestsPage() {
                               ) : (
                                 request.document_names.map((name, idx) => (
                                   <div key={idx} className="flex items-center gap-2 text-sm">
-                                    <FileText className="h-3 w-3 text-gray-400" />
-                                    <span>{name}</span>
+                                    {request.requested_record_ids?.[idx] ? (
+                                      <>
+                                        <ExternalLink className="h-3 w-3 text-blue-500" />
+                                        <Link
+                                          href={`/patient/records?highlightId=${request.requested_record_ids[idx]}`}
+                                          className="text-blue-600 hover:text-blue-800 hover:underline"
+                                        >
+                                          {name}
+                                        </Link>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <FileText className="h-3 w-3 text-gray-400" />
+                                        <span>{name}</span>
+                                      </>
+                                    )}
                                   </div>
                                 ))
                               )}
