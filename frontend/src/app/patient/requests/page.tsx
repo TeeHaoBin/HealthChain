@@ -20,6 +20,7 @@ import {
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   Dialog,
@@ -41,7 +42,8 @@ import {
   Loader2,
   AlertCircle,
   RefreshCw,
-  ExternalLink
+  ExternalLink,
+  Search
 } from "lucide-react"
 
 export default function PatientRequestsPage() {
@@ -58,6 +60,8 @@ export default function PatientRequestsPage() {
   const [transferRequests, setTransferRequests] = useState<TransferRequestWithNames[]>([])
   const [loadingTransfers, setLoadingTransfers] = useState(true)
   const [transferProcessingId, setTransferProcessingId] = useState<string | null>(null)
+  const [transferSearchTerm, setTransferSearchTerm] = useState("")
+  const [transferStatusFilter, setTransferStatusFilter] = useState<'all' | 'rejected' | 'pending' | 'approved' | 'denied'>('all')
 
   // Denial modal state
   const [denyingTransfer, setDenyingTransfer] = useState<TransferRequestWithNames | null>(null)
@@ -336,6 +340,43 @@ export default function PatientRequestsPage() {
   const pendingDirectCount = requests.filter(r => r.status === 'sent' || r.status === 'draft').length
   const pendingTransferCount = transferRequests.filter(r => r.source_status === 'uploaded' && r.patient_status === 'pending').length
 
+  // Filter transfer requests by search and status
+  const getTransferDisplayStatus = (request: TransferRequestWithNames): 'rejected' | 'pending' | 'approved' | 'denied' => {
+    if (request.source_status === 'rejected') return 'rejected'
+    if (request.patient_status === 'denied') return 'denied'
+    if (request.patient_status === 'approved') return 'approved'
+    return 'pending'
+  }
+
+  const filteredTransferRequests = transferRequests.filter(request => {
+    // Status filter
+    if (transferStatusFilter !== 'all') {
+      const displayStatus = getTransferDisplayStatus(request)
+      if (displayStatus !== transferStatusFilter) return false
+    }
+
+    // Search filter
+    if (transferSearchTerm) {
+      const search = transferSearchTerm.toLowerCase()
+      const matchesRequester = request.requesting_doctor_name?.toLowerCase().includes(search) ||
+        request.requesting_doctor_wallet.toLowerCase().includes(search)
+      const matchesSource = request.source_doctor_name?.toLowerCase().includes(search) ||
+        request.source_doctor_wallet.toLowerCase().includes(search)
+      if (!matchesRequester && !matchesSource) return false
+    }
+
+    return true
+  })
+
+  // Filter counts for tabs
+  const transferFilterCounts = {
+    all: transferRequests.length,
+    rejected: transferRequests.filter(r => getTransferDisplayStatus(r) === 'rejected').length,
+    pending: transferRequests.filter(r => getTransferDisplayStatus(r) === 'pending').length,
+    approved: transferRequests.filter(r => getTransferDisplayStatus(r) === 'approved').length,
+    denied: transferRequests.filter(r => getTransferDisplayStatus(r) === 'denied').length
+  }
+
   return (
     <RoleGuard allowedRoles={['patient']}>
       <DashboardLayout>
@@ -378,12 +419,33 @@ export default function PatientRequestsPage() {
 
             {/* Transfer Requests Tab */}
             <TabsContent value="transfer">
-              <div className="flex justify-end mb-4">
+              {/* Search and Filter Controls */}
+              <div className="flex flex-col sm:flex-row gap-4 mb-4">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    placeholder="Search by doctor name or wallet..."
+                    className="pl-10"
+                    value={transferSearchTerm}
+                    onChange={(e) => setTransferSearchTerm(e.target.value)}
+                  />
+                </div>
                 <Button variant="outline" size="sm" onClick={fetchTransferRequests} disabled={loadingTransfers}>
                   <RefreshCw className={`h-4 w-4 mr-2 ${loadingTransfers ? 'animate-spin' : ''}`} />
                   Refresh
                 </Button>
               </div>
+
+              {/* Status Filter Tabs */}
+              <Tabs value={transferStatusFilter} onValueChange={(v) => setTransferStatusFilter(v as typeof transferStatusFilter)} className="mb-4">
+                <TabsList className="grid w-full grid-cols-5">
+                  <TabsTrigger value="all">All ({transferFilterCounts.all})</TabsTrigger>
+                  <TabsTrigger value="pending">Pending ({transferFilterCounts.pending})</TabsTrigger>
+                  <TabsTrigger value="approved">Approved ({transferFilterCounts.approved})</TabsTrigger>
+                  <TabsTrigger value="denied">Denied ({transferFilterCounts.denied})</TabsTrigger>
+                  <TabsTrigger value="rejected">Provider Rejected ({transferFilterCounts.rejected})</TabsTrigger>
+                </TabsList>
+              </Tabs>
 
               <Card className="divide-y">
                 {loadingTransfers ? (
@@ -391,16 +453,27 @@ export default function PatientRequestsPage() {
                     <Loader2 className="h-8 w-8 animate-spin mx-auto text-gray-400" />
                     <p className="text-gray-500 mt-2">Loading transfer requests...</p>
                   </div>
-                ) : transferRequests.length === 0 ? (
+                ) : filteredTransferRequests.length === 0 ? (
                   <div className="p-8 text-center">
                     <FileText className="h-12 w-12 mx-auto text-gray-300 mb-3" />
-                    <p className="text-gray-500">No transfer requests.</p>
-                    <p className="text-sm text-gray-400 mt-1">
-                      Transfer requests occur when one doctor needs records from another doctor.
+                    <p className="text-gray-500">
+                      {transferSearchTerm || transferStatusFilter !== 'all'
+                        ? 'No transfer requests match your filters.'
+                        : 'No transfer requests.'}
                     </p>
+                    {(transferSearchTerm || transferStatusFilter !== 'all') && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="mt-3"
+                        onClick={() => { setTransferSearchTerm(''); setTransferStatusFilter('all'); }}
+                      >
+                        Clear Filters
+                      </Button>
+                    )}
                   </div>
                 ) : (
-                  transferRequests.map((request) => (
+                  filteredTransferRequests.map((request) => (
                     <div key={request.id} className="p-4 hover:bg-gray-50">
                       <div className="flex justify-between items-start mb-3">
                         <div className="flex-1">
