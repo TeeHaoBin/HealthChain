@@ -431,12 +431,16 @@ export default function PatientRequestsPage() {
                           <div className="bg-gray-50 rounded p-3 mt-2">
                             <p className="text-xs text-gray-500 mb-1">Requested Documents:</p>
                             <div className="space-y-1">
-                              {request.document_names?.map((name, idx) => (
-                                <div key={idx} className="flex items-center gap-2 text-sm">
-                                  <FileText className="h-3 w-3 text-gray-400" />
-                                  <span>{name}</span>
-                                </div>
-                              ))}
+                              {request.source_status === 'rejected' || !request.document_names?.length ? (
+                                <p className="text-sm text-gray-400 italic">No file attached</p>
+                              ) : (
+                                request.document_names.map((name, idx) => (
+                                  <div key={idx} className="flex items-center gap-2 text-sm">
+                                    <FileText className="h-3 w-3 text-gray-400" />
+                                    <span>{name}</span>
+                                  </div>
+                                ))
+                              )}
                             </div>
                           </div>
 
