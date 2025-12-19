@@ -43,8 +43,14 @@ import {
   AlertCircle,
   RefreshCw,
   ExternalLink,
-  Search
+  Search,
+  Info
 } from "lucide-react"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 
 export default function PatientRequestsPage() {
   const { address, isConnected } = useAccount()
@@ -535,9 +541,19 @@ export default function PatientRequestsPage() {
                           </div>
 
                           {/* Purpose */}
-                          <p className="text-sm text-gray-500 mt-2">
-                            <span className="font-medium">Purpose:</span> {request.purpose}
-                          </p>
+                          <div className="mt-2">
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="inline-flex items-center gap-1 text-sm text-gray-500 cursor-help">
+                                  <Info className="h-3.5 w-3.5" />
+                                  <span className="font-medium">Purpose</span>
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent side="top" align="start" className="max-w-xs">
+                                <p>{request.purpose}</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </div>
 
                           {/* Urgency */}
                           {request.urgency !== 'routine' && (
@@ -584,15 +600,31 @@ export default function PatientRequestsPage() {
                           )}
 
                           {request.patient_status === 'denied' && request.patient_denial_reason && (
-                            <p className="text-xs text-gray-500 max-w-48 text-right">
-                              Reason: {request.patient_denial_reason}
-                            </p>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="flex items-center gap-1 text-xs text-gray-500 cursor-help">
+                                  <Info className="h-3.5 w-3.5" />
+                                  <span>Reason</span>
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-xs">
+                                <p>{request.patient_denial_reason}</p>
+                              </TooltipContent>
+                            </Tooltip>
                           )}
 
                           {request.source_status === 'rejected' && request.source_rejection_reason && (
-                            <p className="text-xs text-gray-500 max-w-48 text-right">
-                              Provider reason: {request.source_rejection_reason}
-                            </p>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="flex items-center gap-1 text-xs text-gray-500 cursor-help">
+                                  <Info className="h-3.5 w-3.5" />
+                                  <span>Provider Reason</span>
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-xs">
+                                <p>{request.source_rejection_reason}</p>
+                              </TooltipContent>
+                            </Tooltip>
                           )}
                         </div>
                       </div>
