@@ -28,7 +28,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { useToast } from '@/components/ui/use-toast'
-import { Shield, Plus, Upload, XCircle, Loader2, Clock, CheckCircle2, FileText, User, RefreshCw, Send, Search } from 'lucide-react'
+import { Shield, Plus, Upload, XCircle, Loader2, Clock, CheckCircle2, FileText, User, RefreshCw, Send, Search, Info } from 'lucide-react'
 import WalletConnect from '@/components/auth/WalletConnect'
 import {
   getTransferRequestsForSourceDoctor,
@@ -41,6 +41,11 @@ import {
   TransferRequestWithNames
 } from '@/lib/supabase/helpers'
 import { fileUploadService } from '@/services/fileUploadService'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 
 export default function DoctorHistoryPage() {
   const { address, isConnected } = useAccount()
@@ -562,9 +567,19 @@ export default function DoctorHistoryPage() {
                               Patient: {request.patient_name || request.patient_wallet.slice(0, 10) + '...'}
                             </p>
                             {request.source_rejection_reason && (
-                              <p className="text-sm text-red-600 mt-2">
-                                Rejection reason: {request.source_rejection_reason}
-                              </p>
+                              <div className="mt-2">
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span className="inline-flex items-center gap-1 text-sm text-red-600 cursor-help">
+                                      <Info className="h-3.5 w-3.5" />
+                                      <span className="font-medium">Rejection Reason</span>
+                                    </span>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top" align="start" className="max-w-xs">
+                                    <p>{request.source_rejection_reason}</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </div>
                             )}
                           </div>
                           <div className="flex flex-col items-end gap-2">
@@ -652,9 +667,18 @@ export default function DoctorHistoryPage() {
                                 {request.patient_name || request.patient_wallet.slice(0, 10) + '...'}
                               </span>
                             </div>
-                            <div className="flex items-center gap-2 text-sm text-gray-600">
-                              <span className="min-w-[55px]">Purpose:</span>
-                              <span className="text-gray-700">{request.purpose}</span>
+                            <div className="mt-1">
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className="inline-flex items-center gap-1 text-sm text-gray-500 cursor-help">
+                                    <Info className="h-3.5 w-3.5" />
+                                    <span className="font-medium">Purpose</span>
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent side="top" align="start" className="max-w-xs">
+                                  <p>{request.purpose}</p>
+                                </TooltipContent>
+                              </Tooltip>
                             </div>
                           </div>
                           <div className="flex flex-col items-end gap-2">
