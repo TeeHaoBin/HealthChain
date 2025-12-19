@@ -637,6 +637,7 @@ export default function DoctorHistoryPage() {
                               <span>From:</span>
                               <span className="font-medium text-gray-900">
                                 {request.requesting_doctor_name || request.requesting_doctor_wallet.slice(0, 10) + '...'}
+                                {request.requesting_organization && ` (${request.requesting_organization})`}
                               </span>
                             </div>
                             <div className="bg-blue-50 rounded p-3 mt-2 mb-2">
@@ -645,12 +646,16 @@ export default function DoctorHistoryPage() {
                                 {request.document_description || 'Not specified'}
                               </p>
                             </div>
-                            <p className="text-sm text-gray-500">
-                              Patient: {request.patient_name || request.patient_wallet.slice(0, 10) + '...'}
-                            </p>
-                            <p className="text-sm text-gray-500">
-                              Purpose: {request.purpose}
-                            </p>
+                            <div className="flex items-center gap-2 text-sm text-gray-600 mb-1">
+                              <span className="min-w-[55px]">Patient:</span>
+                              <span className="font-medium text-gray-900">
+                                {request.patient_name || request.patient_wallet.slice(0, 10) + '...'}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2 text-sm text-gray-600">
+                              <span className="min-w-[55px]">Purpose:</span>
+                              <span className="text-gray-700">{request.purpose}</span>
+                            </div>
                           </div>
                           <div className="flex flex-col items-end gap-2">
                             {getStatusBadge(request, false)}
