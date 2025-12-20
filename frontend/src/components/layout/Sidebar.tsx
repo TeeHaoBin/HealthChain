@@ -12,7 +12,6 @@ import {
   Stethoscope,
   UserCheck,
   Activity,
-  Monitor,
   Loader2,
   CheckCircle,
   AlertCircle,
@@ -46,9 +45,6 @@ const navigationItems = {
   admin: [
     { title: "Dashboard", url: "/admin/dashboard", icon: LayoutDashboard },
     { title: "Verify Doctor", url: "/admin/verify", icon: UserCheck },
-    { title: "Test Functions", url: "/admin/test", icon: Activity },
-    { title: "System Monitoring", url: "/admin/system-monitoring", icon: Monitor },
-    { title: "Profile", url: "/profile", icon: User },
   ],
 }
 

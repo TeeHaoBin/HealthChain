@@ -5,10 +5,10 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
-import { 
-  Users, 
-  UserCheck, 
-  Shield, 
+import {
+  Users,
+  UserCheck,
+  Shield,
   Activity,
   Search,
   Eye,
@@ -124,8 +124,8 @@ export default function AdminDashboard() {
   )
 
   const handleVerifyDoctor = (doctorId: string, action: 'verify' | 'reject') => {
-    setDoctors(prev => prev.map(doctor => 
-      doctor.id === doctorId 
+    setDoctors(prev => prev.map(doctor =>
+      doctor.id === doctorId
         ? { ...doctor, verificationStatus: action === 'verify' ? 'verified' : 'rejected' }
         : doctor
     ))
@@ -238,7 +238,7 @@ export default function AdminDashboard() {
                         <span className="ml-1">{doctor.verificationStatus}</span>
                       </Badge>
                     </div>
-                    
+
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600">
                       <div>
                         <p><strong>Email:</strong> {doctor.email}</p>
@@ -267,19 +267,19 @@ export default function AdminDashboard() {
                       <Eye className="h-3 w-3" />
                       Review
                     </Button>
-                    
+
                     {doctor.verificationStatus === 'pending' && (
                       <div className="flex gap-1">
-                        <Button 
-                          size="sm" 
+                        <Button
+                          size="sm"
                           className="flex items-center gap-1"
                           onClick={() => handleVerifyDoctor(doctor.id, 'verify')}
                         >
                           <CheckCircle className="h-3 w-3" />
                           Verify
                         </Button>
-                        <Button 
-                          size="sm" 
+                        <Button
+                          size="sm"
                           variant="destructive"
                           onClick={() => handleVerifyDoctor(doctor.id, 'reject')}
                         >
@@ -295,77 +295,6 @@ export default function AdminDashboard() {
           </div>
         </CardContent>
       </Card>
-
-      {/* System Activity */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Activity className="h-5 w-5" />
-              Recent System Activity
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              <div className="flex items-center gap-3 p-2 border-l-4 border-green-500 bg-green-50">
-                <CheckCircle className="h-4 w-4 text-green-600" />
-                <div className="text-sm">
-                  <p className="font-medium">Dr. Emily Rodriguez verified</p>
-                  <p className="text-gray-600">2 hours ago</p>
-                </div>
-              </div>
-              
-              <div className="flex items-center gap-3 p-2 border-l-4 border-blue-500 bg-blue-50">
-                <Users className="h-4 w-4 text-blue-600" />
-                <div className="text-sm">
-                  <p className="font-medium">New patient registration: John Doe</p>
-                  <p className="text-gray-600">3 hours ago</p>
-                </div>
-              </div>
-              
-              <div className="flex items-center gap-3 p-2 border-l-4 border-yellow-500 bg-yellow-50">
-                <AlertTriangle className="h-4 w-4 text-yellow-600" />
-                <div className="text-sm">
-                  <p className="font-medium">Doctor verification pending: Dr. Michael Chen</p>
-                  <p className="text-gray-600">5 hours ago</p>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Shield className="h-5 w-5" />
-              System Health
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Database Status</span>
-                <Badge className="bg-green-100 text-green-800">Healthy</Badge>
-              </div>
-              
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">IPFS Network</span>
-                <Badge className="bg-green-100 text-green-800">Connected</Badge>
-              </div>
-              
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Blockchain Sync</span>
-                <Badge className="bg-green-100 text-green-800">Synced</Badge>
-              </div>
-              
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">API Response Time</span>
-                <Badge className="bg-yellow-100 text-yellow-800">245ms</Badge>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
     </div>
   )
 }

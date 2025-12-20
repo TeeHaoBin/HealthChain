@@ -34,7 +34,7 @@ export default function KYCVerificationTable() {
         submitted_at: '2025-01-19T10:00:00Z'
       },
       {
-        id: '2', 
+        id: '2',
         full_name: 'Dr. Michael Chen',
         email: 'michael.chen@clinic.com',
         wallet_address: '0x1234567890abcdef1234567890abcdef12345678',
@@ -44,7 +44,7 @@ export default function KYCVerificationTable() {
         submitted_at: '2025-01-19T14:30:00Z'
       }
     ]
-    
+
     setTimeout(() => {
       setVerifications(mockData)
       setLoading(false)
@@ -55,11 +55,11 @@ export default function KYCVerificationTable() {
     try {
       // TODO: Implement actual verification API call
       console.log(`${action} verification for doctor ID: ${id}`)
-      
+
       // Update local state for now
-      setVerifications(prev => 
-        prev.map(v => 
-          v.id === id 
+      setVerifications(prev =>
+        prev.map(v =>
+          v.id === id
             ? { ...v, status: action === 'approve' ? 'approved' : 'rejected' }
             : v
         )
@@ -110,7 +110,7 @@ export default function KYCVerificationTable() {
                   {verification.wallet_address}
                 </p>
               </div>
-              
+
               <div>
                 <div className="space-y-1">
                   <p className="text-sm">
@@ -119,12 +119,12 @@ export default function KYCVerificationTable() {
                   <p className="text-sm">
                     <span className="font-medium">Specialization:</span> {verification.specialization || 'N/A'}
                   </p>
-                  <p className="text-sm">
+                  <div className="text-sm flex items-center gap-1">
                     <span className="font-medium">Status:</span> {getStatusBadge(verification.status)}
-                  </p>
+                  </div>
                 </div>
               </div>
-              
+
               <div className="flex justify-end space-x-2">
                 {verification.status === 'pending' && (
                   <>
