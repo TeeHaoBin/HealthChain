@@ -65,7 +65,7 @@ interface HealthFlagsForm {
 
 export default function ProfilePage() {
   const { role, isAuthenticated } = useRole()
-  const { address, isConnected } = useAccount()
+  const { address, isConnected, status } = useAccount()
   const { toast } = useToast()
 
   const [user, setUser] = useState<UserType | null>(null)
@@ -73,6 +73,9 @@ export default function ProfilePage() {
   const [doctorProfile, setDoctorProfile] = useState<DoctorProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [copied, setCopied] = useState(false)
+
+  // Check if wagmi is still hydrating/reconnecting
+  const isWagmiReady = status !== 'reconnecting' && status !== 'connecting'
 
   // Edit mode states
   const [editingPersonal, setEditingPersonal] = useState(false)
@@ -98,6 +101,11 @@ export default function ProfilePage() {
   })
 
   const fetchProfileData = useCallback(async () => {
+    // Wait for wagmi to finish reconnecting before checking connection
+    if (!isWagmiReady) {
+      return
+    }
+
     if (!isConnected || !address) {
       setLoading(false)
       return
@@ -153,7 +161,7 @@ export default function ProfilePage() {
     } finally {
       setLoading(false)
     }
-  }, [address, isConnected, toast])
+  }, [address, isConnected, isWagmiReady, toast])
 
   useEffect(() => {
     fetchProfileData()
@@ -339,8 +347,8 @@ export default function ProfilePage() {
     }
   }
 
-  // Loading skeleton
-  if (loading) {
+  // Loading skeleton - also show while wagmi is reconnecting
+  if (loading || !isWagmiReady) {
     return (
       <DashboardLayout>
         <div className="space-y-6">
