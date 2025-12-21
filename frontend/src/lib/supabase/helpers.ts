@@ -357,6 +357,52 @@ export async function getPatientProfile(userId: string): Promise<PatientProfile 
   }
 }
 
+export async function updatePatientProfile(
+  userId: string,
+  updates: Partial<Omit<PatientProfile, 'id' | 'user_id' | 'created_at'>>
+): Promise<PatientProfile | null> {
+  try {
+    // First check if the profile exists
+    const { data: existing } = await supabase
+      .from('patient_profiles')
+      .select('id')
+      .eq('user_id', userId)
+      .single()
+
+    if (existing) {
+      // Profile exists, update it
+      const { data, error } = await supabase
+        .from('patient_profiles')
+        .update(updates)
+        .eq('user_id', userId)
+        .select()
+        .single()
+
+      if (error) throw error
+      return data
+    } else {
+      // Profile doesn't exist, create it
+      const { data, error } = await supabase
+        .from('patient_profiles')
+        .insert([{
+          user_id: userId,
+          has_allergies: false,
+          has_chronic_conditions: false,
+          preferred_language: 'en',
+          ...updates
+        }])
+        .select()
+        .single()
+
+      if (error) throw error
+      return data
+    }
+  } catch (error) {
+    console.error('Error updating patient profile:', error)
+    return null
+  }
+}
+
 // Health Records Management
 export async function getPatientRecords(patientId: string): Promise<HealthRecord[]> {
   try {
