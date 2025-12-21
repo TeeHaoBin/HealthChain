@@ -140,7 +140,27 @@ export default function DoctorDocumentsPage() {
         if (normalizedMime.startsWith("image/")) {
             return <Badge className="bg-green-100 text-green-800 hover:bg-green-100">Image</Badge>
         }
-        return <Badge variant="secondary">{mimeType.split('/').pop()}</Badge>
+        // Handle Word documents
+        if (normalizedMime.includes("wordprocessingml") || normalizedMime.includes("msword")) {
+            return <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">DOC</Badge>
+        }
+        // Handle Excel spreadsheets
+        if (normalizedMime.includes("spreadsheetml") || normalizedMime.includes("ms-excel")) {
+            return <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100">XLS</Badge>
+        }
+        // Handle PowerPoint presentations
+        if (normalizedMime.includes("presentationml") || normalizedMime.includes("ms-powerpoint")) {
+            return <Badge className="bg-orange-100 text-orange-800 hover:bg-orange-100">PPT</Badge>
+        }
+        // Handle plain text files
+        if (normalizedMime.startsWith("text/")) {
+            return <Badge className="bg-gray-100 text-gray-800 hover:bg-gray-100">TXT</Badge>
+        }
+        // For other types, show a simplified label
+        const suffix = mimeType.split('/').pop() || 'File'
+        // Truncate long suffixes
+        const displayLabel = suffix.length > 10 ? 'File' : suffix.toUpperCase()
+        return <Badge variant="secondary">{displayLabel}</Badge>
     }
 
     return (
