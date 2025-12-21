@@ -54,6 +54,9 @@ export default function DoctorHistoryPage() {
   // Transfer requests state
   const [myRequests, setMyRequests] = useState<TransferRequestWithNames[]>([])
   const [incomingRequests, setIncomingRequests] = useState<TransferRequestWithNames[]>([])
+
+  // Direct requests pending count (from AccessHistory)
+  const [directPendingCount, setDirectPendingCount] = useState(0)
   const [loadingTransfers, setLoadingTransfers] = useState(false)
 
   // Search and filter state for "Requested by Me" tab
@@ -470,7 +473,12 @@ export default function DoctorHistoryPage() {
           ) : (
             <Tabs defaultValue="direct" className="w-full">
               <TabsList className="mb-4">
-                <TabsTrigger value="direct">Direct Requests</TabsTrigger>
+                <TabsTrigger value="direct" className="relative">
+                  Direct Requests
+                  {directPendingCount > 0 && (
+                    <Badge className="ml-2 bg-yellow-500 text-white text-xs">{directPendingCount}</Badge>
+                  )}
+                </TabsTrigger>
                 <TabsTrigger value="requested-by-me" className="relative">
                   Requested by Me
                   {pendingMyCount > 0 && (
@@ -487,7 +495,10 @@ export default function DoctorHistoryPage() {
 
               {/* Direct Requests Tab */}
               <TabsContent value="direct">
-                <AccessHistory walletAddress={address} />
+                <AccessHistory
+                  walletAddress={address}
+                  onStatsLoad={(stats) => setDirectPendingCount(stats.pending)}
+                />
               </TabsContent>
 
               {/* Requested by Me Tab - Doctor B's view */}

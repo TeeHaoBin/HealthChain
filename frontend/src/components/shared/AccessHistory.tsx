@@ -17,8 +17,17 @@ import {
 import { Search, X, FileText, ExternalLink, AlertCircle, Info } from "lucide-react"
 import { getAccessRequestsWithPatient, AccessRequestWithPatient } from "@/lib/supabase/helpers"
 
+interface AccessHistoryStats {
+  pending: number
+  declined: number
+  active: number
+  expired: number
+  revoked: number
+}
+
 interface AccessHistoryProps {
   walletAddress?: string
+  onStatsLoad?: (stats: AccessHistoryStats) => void
 }
 
 type StatusFilter = "all" | "pending" | "granted" | "declined" | "expired" | "revoked"
@@ -83,7 +92,7 @@ function formatDate(dateString?: string): string {
   })
 }
 
-export default function AccessHistory({ walletAddress }: AccessHistoryProps) {
+export default function AccessHistory({ walletAddress, onStatsLoad }: AccessHistoryProps) {
   const router = useRouter()
   const [requests, setRequests] = useState<AccessRequestWithPatient[]>([])
   const [loading, setLoading] = useState(true)
@@ -174,6 +183,13 @@ export default function AccessHistory({ walletAddress }: AccessHistoryProps) {
       revoked: requests.filter(r => r.status === "revoked").length
     }
   }, [requests, currentTime])
+
+  // Notify parent of stats changes
+  useEffect(() => {
+    if (onStatsLoad && currentTime) {
+      onStatsLoad(stats)
+    }
+  }, [stats, onStatsLoad, currentTime])
 
   // Handle row click
   const handleRowClick = (request: AccessRequestWithPatient) => {
