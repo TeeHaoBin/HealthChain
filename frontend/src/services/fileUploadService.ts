@@ -33,14 +33,14 @@ export class FileUploadService {
     recordType: string = 'general'
   ): Promise<UploadResult> {
     try {
-      console.log('🚀 Starting encrypted file upload...')
+
 
       // Step 1: Connect to Lit Protocol
       await litClient.connect()
-      console.log('✅ Connected to Lit Protocol')
+
 
       // Step 2: Encrypt the file using Lit Protocol
-      console.log('🔒 Encrypting file with Lit Protocol...')
+
       const encryptionResult = await litClient.encryptFileBinary(file, patientAddress, authorizedDoctors)
 
       // Validate encryption result
@@ -63,14 +63,10 @@ export class FileUploadService {
         throw new Error('Failed to encrypt file - encrypted data is empty')
       }
 
-      console.log('✅ File encrypted successfully', {
-        originalSize: file.size,
-        encryptedSize: encryptedData.size,
-        hasSymmetricKey: !!encryptedSymmetricKey
-      })
+
 
       // Step 3: Upload encrypted file to IPFS via Pinata
-      console.log('☁️ Uploading encrypted file to IPFS...')
+
       const ipfsHash = await ipfsClient.uploadEncryptedFile(
         encryptedData,
         file.name,
@@ -84,10 +80,10 @@ export class FileUploadService {
         }
       )
 
-      console.log('✅ File uploaded to IPFS:', ipfsHash)
+
 
       // Step 4: Validate session for database operations
-      console.log('👤 Validating session...')
+
 
       const authData = localStorage.getItem('healthchain_auth')
       if (!authData) {
@@ -110,10 +106,10 @@ export class FileUploadService {
         throw new Error(`Session validation failed: ${sessionValidation?.error || sessionError?.message}`)
       }
 
-      console.log('✅ Session validated for user:', sessionValidation.user?.wallet_address)
+
 
       // Step 5: Store metadata in Supabase
-      console.log('💾 Storing metadata in database...')
+
 
       // Match your existing database structure
       const fileMetadata = {
@@ -150,7 +146,7 @@ export class FileUploadService {
         throw new Error(`Database error: ${error.message}`)
       }
 
-      console.log('✅ Metadata stored in database')
+
 
       return {
         success: true,
@@ -297,7 +293,7 @@ export class FileUploadService {
   ): Promise<{ success: boolean; error?: string; newIpfsHash?: string }> {
     try {
       const reportProgress = (step: string) => {
-        console.log(`📋 ${step}`)
+
         onProgress?.(step)
       }
 
@@ -320,7 +316,7 @@ export class FileUploadService {
 
       // Check if doctor already has access
       if (currentDoctors.includes(normalizedDoctorAddress)) {
-        console.log('⚠️ Doctor already has access to this file')
+
         return { success: true, newIpfsHash: record.ipfs_hash }
       }
 
@@ -414,12 +410,7 @@ export class FileUploadService {
       }
 
       reportProgress('Access granted successfully!')
-      console.log('✅ Doctor access granted with re-encryption:', {
-        fileId,
-        doctorAddress: normalizedDoctorAddress,
-        newIpfsHash,
-        totalAuthorizedDoctors: updatedDoctors.length
-      })
+
 
       return { success: true, newIpfsHash }
 
@@ -437,7 +428,7 @@ export class FileUploadService {
   // Retrieve and decrypt a file
   async retrieveFile(fileId: string): Promise<Blob> {
     try {
-      console.log('📥 Starting file retrieval for:', fileId)
+
 
       // 1. Fetch metadata from Supabase
       const { data: record, error } = await supabase
@@ -450,28 +441,21 @@ export class FileUploadService {
         throw new Error(`Record not found: ${error?.message || 'Unknown error'}`)
       }
 
-      console.log('📄 Metadata retrieved:', {
-        title: record.title,
-        ipfsHash: record.ipfs_hash,
-        hasKey: !!record.encrypted_symmetric_key
-      })
+
 
       if (!record.ipfs_hash) {
         throw new Error('No IPFS hash found for this record')
       }
 
       // 2. Fetch encrypted content from Pinata with gateway fallback
-      console.log('☁️ Fetching from IPFS...')
+
       const encryptedBlob = await this.fetchFromIPFSWithFallback(record.ipfs_hash)
 
       if (!encryptedBlob) {
         throw new Error('Failed to fetch file from all available IPFS gateways')
       }
 
-      console.log('📦 Encrypted blob retrieved:', {
-        size: encryptedBlob.size,
-        type: encryptedBlob.type
-      })
+
 
       // 3. Decrypt using Lit Protocol
       if (!record.encrypted_symmetric_key) {
@@ -480,7 +464,7 @@ export class FileUploadService {
         return encryptedBlob
       }
 
-      console.log('🔓 Decrypting file...')
+
       await litClient.connect()
 
       const accessControlConditions = typeof record.access_control_conditions === 'string'
@@ -489,14 +473,10 @@ export class FileUploadService {
 
       // CRITICAL FIX: Convert blob to string for decryption
       // The encryption process creates a string ciphertext, but IPFS returns it as a blob
-      console.log('📝 Converting encrypted blob to string for decryption...')
+
       const encryptedString = await encryptedBlob.text()
 
-      console.log('🔓 Starting decryption with Lit Protocol...', {
-        ciphertextLength: encryptedString.length,
-        hasAccessConditions: !!accessControlConditions,
-        conditionsCount: accessControlConditions?.length || 0
-      })
+
 
       const decryptedFile = await litClient.decryptFile(
         encryptedString,  // Pass string instead of blob
@@ -561,7 +541,7 @@ export class FileUploadService {
 
     for (const gateway of gateways) {
       try {
-        console.log(`🔄 Attempting to fetch from ${gateway.name}...`)
+
 
         const response = await fetch(gateway.url, {
           // Add timeout per gateway (faster gateways have shorter timeouts)
@@ -574,10 +554,7 @@ export class FileUploadService {
 
         if (response.ok) {
           const blob = await response.blob()
-          console.log(`✅ Successfully fetched from ${gateway.name}`, {
-            size: blob.size,
-            type: blob.type
-          })
+
           return blob
         } else {
           const errorMsg = `${gateway.name} returned ${response.status}: ${response.statusText}`
@@ -610,7 +587,7 @@ export class FileUploadService {
     updates: { title?: string; recordType?: string }
   ): Promise<{ success: boolean; error?: string }> {
     try {
-      console.log('📝 Updating record metadata:', recordId)
+
 
       // Step 1: Fetch record to verify ownership
       const { data: record, error: fetchError } = await supabase
@@ -654,7 +631,7 @@ export class FileUploadService {
       // Step 4: Update snapshot_document_titles in access_requests if title changed
       // This ensures deleted documents show the last known name, not the original name
       if (updates.title !== undefined) {
-        console.log('📋 Updating access request snapshots...')
+
 
         // Find all access requests that reference this record
         const { data: accessRequests, error: fetchRequestsError } = await supabase
@@ -688,11 +665,11 @@ export class FileUploadService {
               }
             }
           }
-          console.log(`✅ Updated snapshots for ${accessRequests.length} access request(s)`)
+
         }
       }
 
-      console.log('✅ Record metadata updated successfully')
+
       return { success: true }
 
     } catch (error) {
@@ -712,7 +689,7 @@ export class FileUploadService {
    */
   async deleteRecord(recordId: string, patientWallet: string): Promise<{ success: boolean; error?: string }> {
     try {
-      console.log('🗑️ Starting record deletion for:', recordId)
+
 
       // Step 1: Fetch record to get IPFS hash and verify ownership
       const { data: record, error: fetchError } = await supabase
@@ -733,7 +710,7 @@ export class FileUploadService {
       const ipfsHash = record.ipfs_hash
 
       // Step 2: Delete from Supabase health_records
-      console.log('💾 Deleting from Supabase...')
+
       const { error: deleteError } = await supabase
         .from('health_records')
         .delete()
@@ -743,11 +720,11 @@ export class FileUploadService {
         throw new Error(`Database deletion failed: ${deleteError.message}`)
       }
 
-      console.log('✅ Record deleted from Supabase')
+
 
       // Step 3: Update access_requests that reference this record
       // Set status to 'revoked' with denial_reason
-      console.log('📋 Updating related access requests...')
+
       const { error: updateError } = await supabase
         .from('access_requests')
         .update({
@@ -764,22 +741,22 @@ export class FileUploadService {
         console.error('⚠️ Failed to update access requests:', updateError)
         // Don't throw - record is already deleted, this is just cleanup
       } else {
-        console.log('✅ Access requests updated')
+
       }
 
       // Step 4: Unpin from Pinata (if IPFS hash exists)
       if (ipfsHash) {
-        console.log('☁️ Unpinning from IPFS...')
+
         try {
           await ipfsClient.deleteFile(ipfsHash)
-          console.log('✅ File unpinned from IPFS')
+
         } catch (unpinError) {
           console.warn('⚠️ Failed to unpin from IPFS (file may already be unpinned):', unpinError)
           // Don't throw - Supabase record is already deleted
         }
       }
 
-      console.log('✅ Record deletion completed successfully')
+
       return { success: true }
 
     } catch (error) {

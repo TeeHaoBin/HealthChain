@@ -6,7 +6,7 @@ class LogoutStateManager {
   private listeners: Set<() => void> = new Set()
 
   setLoggingOut(value: boolean) {
-    console.log(`🔒 Logout state changed: ${value ? 'LOGGING OUT' : 'NOT LOGGING OUT'}`)
+
     this.isLoggingOut = value
     this.notifyListeners()
   }
@@ -29,7 +29,7 @@ class LogoutStateManager {
   // Force block any authentication attempts during logout
   blockAuthDuringLogout<T>(operation: () => Promise<T>, operationName: string): Promise<T | null> {
     if (this.isLoggingOut) {
-      console.log(`🚫 Blocked ${operationName} - logout in progress`)
+
       return Promise.resolve(null)
     }
     return operation()

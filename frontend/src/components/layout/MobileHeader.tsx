@@ -17,7 +17,7 @@ export function MobileHeader({ onMenuClick, isMobile }: MobileHeaderProps) {
         variant="ghost"
         size="sm"
         onClick={() => {
-          console.log('🍔 Hamburger menu clicked!')
+
           onMenuClick()
         }}
         className="p-2"
@@ -25,7 +25,7 @@ export function MobileHeader({ onMenuClick, isMobile }: MobileHeaderProps) {
       >
         <Menu className="h-6 w-6" />
       </Button>
-      
+
       <div className="flex-1">
         <h1 className="text-lg font-semibold text-gray-900">
           HealthChain

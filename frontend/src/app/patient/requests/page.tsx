@@ -240,7 +240,7 @@ export default function PatientRequestsPage() {
 
       // Step 1: Re-encrypt each record to grant Doctor B access
       for (const recordId of fullRequest.requested_record_ids) {
-        console.log(`🔒 Re-encrypting record ${recordId} for Doctor B...`)
+
 
         const result = await fileUploadService.grantAccessWithReEncryption(
           recordId,

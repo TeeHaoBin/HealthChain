@@ -53,7 +53,7 @@ function initializeSidebarState() {
 
   hasInitialized = true
   const mobile = window.innerWidth < 1024 // lg breakpoint
-  console.log('📱 Sidebar initialized:', { width: window.innerWidth, mobile })
+
 
   updateState({
     isMobile: mobile,
@@ -67,7 +67,7 @@ function handleResize() {
 
   // Only update if mobile status changed to avoid unnecessary re-renders
   if (mobile !== sidebarState.isMobile) {
-    console.log('📱 Screen size changed:', { width: window.innerWidth, mobile })
+
     updateState({
       isMobile: mobile,
       isSidebarOpen: !mobile
@@ -90,7 +90,7 @@ export function useSidebar() {
   }, [])
 
   const toggleSidebar = useCallback(() => {
-    console.log('🔄 Toggle sidebar:', { current: sidebarState.isSidebarOpen, willBe: !sidebarState.isSidebarOpen })
+
     updateState({ isSidebarOpen: !sidebarState.isSidebarOpen })
   }, [])
 

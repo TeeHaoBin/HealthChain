@@ -36,8 +36,7 @@ export default async function handler(
             })
         }
 
-        console.log('🗑️ Attempting to unpin file from Pinata:', cid)
-        console.log('🔑 JWT configured:', PINATA_JWT ? `Yes (${PINATA_JWT.substring(0, 20)}...${PINATA_JWT.substring(PINATA_JWT.length - 10)}) Length: ${PINATA_JWT.length}` : 'No')
+
 
         // First, we need to get the file ID from the CID
         // Pinata v3 API requires file ID for deletion, not CID directly
@@ -45,10 +44,10 @@ export default async function handler(
         let fileId: string | null = null
 
         // Approach 1: Try searching with cid query parameter
-        console.log('🔍 Searching for file in Pinata...')
+
         // Correct V3 API endpoint: https://api.pinata.cloud/v3/files/{network}?cid={cid}
         const searchUrl = `https://api.pinata.cloud/v3/files/public?cid=${cid}&limit=1`
-        console.log('🔗 Search URL:', searchUrl)
+
 
         const searchResponse = await fetch(searchUrl, {
             method: 'GET',
@@ -57,11 +56,11 @@ export default async function handler(
             },
         })
 
-        console.log('🔍 Search response status:', searchResponse.status, searchResponse.statusText)
+
 
         if (searchResponse.ok) {
             const searchResult = await searchResponse.json()
-            console.log('🔍 Pinata search result:', JSON.stringify(searchResult, null, 2))
+
 
             if (searchResult.data?.files?.length > 0) {
                 fileId = searchResult.data.files[0].id
@@ -72,7 +71,7 @@ export default async function handler(
 
         // Approach 2: If cid search didn't work, try listing and filtering
         if (!fileId) {
-            console.log('🔍 Trying alternative search: list recent files and filter by CID...')
+
             // Correct V3 API endpoint for listing: https://api.pinata.cloud/v3/files/{network}
             const listResponse = await fetch(`https://api.pinata.cloud/v3/files/public?limit=100`, {
                 method: 'GET',
@@ -81,23 +80,19 @@ export default async function handler(
                 },
             })
 
-            console.log('📋 List response status:', listResponse.status)
+
 
             if (listResponse.ok) {
                 const listResult = await listResponse.json()
-                const fileCount = listResult.data?.files?.length || 0
-                console.log(`📋 Found ${fileCount} files in Pinata public network`)
+
 
                 // Log first few CIDs for debugging
-                if (fileCount > 0) {
-                    const sampleCids = listResult.data.files.slice(0, 5).map((f: { cid: string; name: string }) => ({ cid: f.cid, name: f.name }))
-                    console.log('📋 Sample files:', JSON.stringify(sampleCids, null, 2))
-                }
+
 
                 const matchingFile = listResult.data?.files?.find((f: { cid: string }) => f.cid === cid)
                 if (matchingFile) {
                     fileId = matchingFile.id
-                    console.log('📄 Found file via list filter, ID:', fileId)
+
                 }
             } else {
                 const errorText = await listResponse.text()
@@ -111,7 +106,7 @@ export default async function handler(
             return res.status(200).json({ success: true })
         }
 
-        console.log('📄 Found file ID:', fileId)
+
 
         // Delete the file using Pinata v3 API
         // Correct V3 API endpoint: https://api.pinata.cloud/v3/files/{network}/{id}
@@ -122,7 +117,7 @@ export default async function handler(
             },
         })
 
-        console.log('🗑️ Delete response status:', deleteResponse.status)
+
 
         if (!deleteResponse.ok) {
             const errorText = await deleteResponse.text()
@@ -130,7 +125,7 @@ export default async function handler(
             throw new Error(`Delete failed: ${deleteResponse.status}`)
         }
 
-        console.log('✅ File unpinned from Pinata:', cid)
+
 
         return res.status(200).json({ success: true })
 

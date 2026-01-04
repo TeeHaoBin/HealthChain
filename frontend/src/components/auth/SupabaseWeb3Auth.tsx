@@ -99,7 +99,7 @@ Issued At: ${new Date().toISOString()}`
       if (authResult?.user) {
         // User exists and is authenticated
         const user = existingUser || authResult.user
-        console.log('✅ User authenticated successfully:', user)
+
 
         // Update last login timestamp
         if (existingUser) {
@@ -113,7 +113,7 @@ Issued At: ${new Date().toISOString()}`
           sessionToken: authResult.session_token, // ← THIS IS THE KEY FIX!
           timestamp: Date.now()
         }
-        console.log('💾 Saving auth with session token to localStorage:', authData)
+
         localStorage.setItem('healthchain_auth', JSON.stringify(authData))
 
         // Set authenticated state
@@ -125,7 +125,7 @@ Issued At: ${new Date().toISOString()}`
 
         // Redirect existing users to their dashboard
         setTimeout(() => {
-          console.log('🔄 Redirecting existing user to dashboard for role:', user.role)
+
           let dashboardPath = '/dashboard'
 
           switch (user.role) {
@@ -140,7 +140,7 @@ Issued At: ${new Date().toISOString()}`
               break
           }
 
-          console.log('🔄 Using router.push to:', dashboardPath)
+
           router.push(dashboardPath)
         }, 1000)
       } else {
@@ -157,19 +157,19 @@ Issued At: ${new Date().toISOString()}`
   }
 
   const handleKYCComplete = async () => {
-    console.log('🔄 handleKYCComplete called')
+
     // After KYC completion, authenticate the user
     if (!address) {
-      console.log('❌ No address available')
+
       return
     }
 
     try {
-      console.log('🔍 Getting user by wallet:', address)
+
       const existingUser = await getUserByWallet(address)
 
       if (existingUser) {
-        console.log('✅ User found, creating session:', existingUser)
+
 
         // Generate a new session for the newly registered user
         // We need to call auth_web3_secure to create a session entry
@@ -212,16 +212,15 @@ Issued At: ${new Date().toISOString()}`
           sessionToken: authResult?.session_token,
           timestamp: Date.now()
         }
-        console.log('💾 Saving auth with session token to localStorage:', authData)
+
         localStorage.setItem('healthchain_auth', JSON.stringify(authData))
 
-        // Verify it was saved
-        const saved = localStorage.getItem('healthchain_auth')
-        console.log('✅ Verified localStorage save:', saved ? 'Success' : 'Failed')
+
+
 
         // Redirect to appropriate dashboard using Next.js router (preserves state)
         setTimeout(() => {
-          console.log('🔄 Redirecting to dashboard for role:', existingUser.role)
+
           let dashboardPath = '/dashboard'
 
           switch (existingUser.role) {
@@ -236,11 +235,11 @@ Issued At: ${new Date().toISOString()}`
               break
           }
 
-          console.log('🔄 Using router.push to:', dashboardPath)
+
           router.push(dashboardPath)
         }, 1000)
       } else {
-        console.log('❌ No user found after KYC completion')
+
       }
     } catch (error) {
       console.error('❌ Error in handleKYCComplete:', error)

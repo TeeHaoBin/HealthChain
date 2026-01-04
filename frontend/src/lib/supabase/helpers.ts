@@ -163,7 +163,7 @@ export async function createUser(userData: {
   role: UserRole
 }): Promise<User | null> {
   try {
-    console.log('Creating user with data:', { ...userData, wallet_address: userData.wallet_address.toLowerCase() })
+
 
     const { data, error } = await supabase
       .from('users')
@@ -175,7 +175,7 @@ export async function createUser(userData: {
       .select()
       .single()
 
-    console.log('Supabase response:', { data, error })
+
 
     if (error) {
       console.error('Supabase error details:', {
@@ -187,7 +187,7 @@ export async function createUser(userData: {
       throw error
     }
 
-    console.log('User created successfully:', data)
+
     return data
   } catch (error) {
     console.error('Error creating user:', error)
@@ -227,7 +227,7 @@ export async function updateLastLogin(userId: string): Promise<boolean> {
       .eq('id', userId)
 
     if (error) throw error
-    console.log('✅ Last login updated for user:', userId)
+
     return true
   } catch (error) {
     console.error('❌ Error updating last login:', error)

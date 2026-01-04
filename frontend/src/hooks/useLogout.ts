@@ -49,15 +49,13 @@ export function useLogout() {
       'rk-latest-id'
     ]
 
-    console.log('🧹 Clearing critical auth keys:', criticalAuthKeys)
+
 
     criticalAuthKeys.forEach(key => {
       try {
-        const before = localStorage.getItem(key)
         localStorage.removeItem(key)
         sessionStorage.removeItem(key)
-        const after = localStorage.getItem(key)
-        console.log(`🗑️ ${key}: ${before ? 'existed' : 'not found'} → ${after ? 'still exists!' : 'cleared'}`)
+
       } catch (error) {
         console.warn(`❌ Failed to remove ${key} from storage:`, error)
       }
@@ -66,13 +64,13 @@ export function useLogout() {
     // Clear any remaining items that start with common auth prefixes
     const prefixes = ['auth_', 'wallet_', 'supabase_', 'wagmi.', 'walletconnect', '@appkit/', 'rk-']
 
-    console.log('🧹 Scanning for prefixed keys:', prefixes)
+
 
     for (let i = localStorage.length - 1; i >= 0; i--) {
       const key = localStorage.key(i)
       if (key && prefixes.some(prefix => key.startsWith(prefix))) {
         try {
-          console.log(`🗑️ Removing prefixed key: ${key}`)
+
           localStorage.removeItem(key)
         } catch (error) {
           console.warn(`❌ Failed to remove ${key} from localStorage:`, error)
@@ -86,34 +84,34 @@ export function useLogout() {
       const key = localStorage.key(i)
       if (key) remainingKeys.push(key)
     }
-    console.log('📋 Remaining localStorage keys:', remainingKeys)
+
   }
 
   const verifyLogoutSuccess = async (): Promise<boolean> => {
     try {
       // Check 1: Supabase Auth Session
       const { data: { session } } = await supabase.auth.getSession()
-      console.log('🔍 Supabase session check:', session ? 'Session exists' : 'No session')
+
 
       // Check 2: Custom localStorage auth
       const customAuth = localStorage.getItem('healthchain_auth')
-      console.log('🔍 Custom auth check:', customAuth ? 'Auth data exists' : 'No auth data')
+
 
       // Check 3: Try fetching user data to see if auth is actually cleared
       try {
         // This mimics what useRole does - if this succeeds, logout failed
         const { address } = { address: session?.user?.user_metadata?.wallet_address }
         if (address) {
-          console.log('🔍 Wallet address still available:', address)
+
           return false // Logout failed if we can still get wallet address
         }
-      } catch (e) {
-        console.log('🔍 Wallet address check failed (good):', e)
+      } catch {
+
       }
 
       // Success if no session AND no custom auth data
       const isLoggedOut = !session && !customAuth
-      console.log('🔍 Final logout verification:', isLoggedOut ? 'SUCCESS' : 'FAILED')
+
 
       return isLoggedOut
     } catch (error) {
@@ -125,7 +123,7 @@ export function useLogout() {
   const logout = async (): Promise<boolean> => {
     // Note: Logout state is now set immediately in the Sidebar before this function is called
     // This ensures no race conditions between button click and auth blocking
-    console.log('🔒 useLogout: Logout state should already be set to LOGGING OUT')
+
 
     setState({
       isLoggingOut: true,
@@ -145,7 +143,7 @@ export function useLogout() {
               const sessionToken = parsed.sessionToken || parsed.session_token
 
               if (sessionToken) {
-                console.log('🔐 Invalidating session in database...')
+
                 const { error } = await supabase.rpc('invalidate_session', {
                   p_session_token: sessionToken
                 })
@@ -154,7 +152,7 @@ export function useLogout() {
                   console.warn('⚠️ Failed to invalidate session in database:', error.message)
                   // Continue with logout even if this fails
                 } else {
-                  console.log('✅ Session invalidated in database')
+
                 }
               }
             } catch (e) {
@@ -236,9 +234,9 @@ export function useLogout() {
     // Execute logout steps sequentially
     for (const step of logoutSteps) {
       try {
-        console.log(`Executing: ${step.name}`)
+
         await step.action()
-        console.log(`✅ ${step.name} completed`)
+
       } catch (error) {
         console.error(`❌ ${step.name} failed:`, error)
 
@@ -255,7 +253,7 @@ export function useLogout() {
     if (hasError) {
       // If logout verification failed, try one final forced logout
       if (errorMessage.includes('Logout verification failed')) {
-        console.log('🚨 Verification failed, attempting forced logout...')
+
 
         try {
           // Nuclear option - clear everything and force redirect
@@ -263,7 +261,7 @@ export function useLogout() {
           await supabase.auth.signOut({ scope: 'global' })
 
           // Force page reload to clear any remaining state
-          console.log('🚨 Forcing page reload to complete logout')
+
 
           setState({
             isLoggingOut: false,

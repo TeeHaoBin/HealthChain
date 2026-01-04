@@ -65,9 +65,9 @@ export default function KYCForm({ onComplete }: KYCFormProps) {
 
     setIsSubmitting(true)
     try {
-      console.log('Submitting KYC data:', { ...formData, walletAddress: address })
-      console.log('Supabase URL configured:', !!process.env.NEXT_PUBLIC_SUPABASE_URL)
-      console.log('Supabase Anon Key configured:', !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
+
+
+
 
       // Create user in Supabase
       const userData = await createUser({
@@ -110,17 +110,17 @@ export default function KYCForm({ onComplete }: KYCFormProps) {
         }
       }
 
-      console.log('🎉 KYC data saved successfully!')
+
 
       // Call the onComplete callback to notify parent component
       if (onComplete) {
-        console.log('🔄 Calling onComplete callback')
-        console.log('🔄 onComplete function type:', typeof onComplete)
+
+
         onComplete()
-        console.log('🔄 onComplete callback finished')
+
       } else {
         // Fallback: direct redirect if no callback provided
-        console.log('🔄 No callback provided, doing direct redirect')
+
         const dashboardPath = formData.role === 'doctor' ? '/doctor/dashboard' : '/patient/dashboard'
         window.location.href = dashboardPath
       }

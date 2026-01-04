@@ -29,12 +29,12 @@ export default function FileUploader() {
   // No ref needed for label-based approach - it's pure HTML
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    console.log('handleFileSelect called', event.target.files?.length); // Debug log
+
 
     const files = event.target.files
     if (files) {
       const newFiles = Array.from(files)
-      console.log('Selected files:', newFiles.map(f => f.name)); // Debug log
+
 
       // Validate files with enhanced validation
       const validFiles: File[] = []
@@ -65,7 +65,7 @@ export default function FileUploader() {
 
         // File is valid
         validFiles.push(file)
-        console.log(`✅ Valid file: ${file.name} (${typeValidation.category})`)
+
       })
 
       // Show errors for invalid files
@@ -95,7 +95,7 @@ export default function FileUploader() {
         }))
       ])
     } else {
-      console.log('No files selected');
+
     }
 
     // Clear the input value to allow selecting the same files again
@@ -148,7 +148,7 @@ export default function FileUploader() {
         )
 
         try {
-          console.log(`🚀 Uploading file ${i + 1}/${selectedFiles.length}: ${file.name}`)
+
 
           const result = await fileUploadService.uploadEncryptedFile(
             file,
@@ -169,7 +169,7 @@ export default function FileUploader() {
               )
             )
             successCount++
-            console.log(`✅ Successfully uploaded: ${file.name}`)
+
           } else {
             throw new Error(result.error || 'Upload failed')
           }
@@ -190,7 +190,7 @@ export default function FileUploader() {
         }
       }
 
-      console.log('🎉 Upload process completed!')
+
 
       if (failCount === 0) {
         // All files uploaded successfully

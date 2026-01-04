@@ -86,7 +86,7 @@ export const dbOperations = {
 
   // Get records with permission status for a specific doctor
   async getRecordsWithPermissions(patientWallet: string, doctorWallet: string) {
-    console.log('[getRecordsWithPermissions] Called with:', { patientWallet, doctorWallet })
+
 
     // Get all patient records (includes authorized_doctors array)
     const { data: records, error: recordsError } = await supabase
@@ -101,8 +101,8 @@ export const dbOperations = {
       throw recordsError
     }
 
-    console.log('[getRecordsWithPermissions] Records found:', records?.length || 0)
-    console.log('[getRecordsWithPermissions] Sample record authorized_doctors:', records?.[0]?.authorized_doctors)
+
+
 
     if (!records || records.length === 0) {
       return []
@@ -117,7 +117,7 @@ export const dbOperations = {
       .ilike('doctor_wallet', doctorWallet)
       .eq('status', 'sent')
 
-    console.log('[getRecordsWithPermissions] Pending requests:', requests, reqError)
+
 
     // Build a set of record IDs that are pending
     const pendingRecordIds = new Set<string>()
@@ -129,7 +129,7 @@ export const dbOperations = {
       })
     }
 
-    console.log('[getRecordsWithPermissions] Pending IDs:', [...pendingRecordIds])
+
 
     // Map records with their permission status
     // Check if doctorWallet is in the record's authorized_doctors array
@@ -151,12 +151,7 @@ export const dbOperations = {
       }
     })
 
-    console.log('[getRecordsWithPermissions] Results with status:', result.map(r => ({
-      id: r.id,
-      title: r.title,
-      status: r.permissionStatus,
-      authorizedDoctors: r.authorized_doctors
-    })))
+
 
     return result
   },

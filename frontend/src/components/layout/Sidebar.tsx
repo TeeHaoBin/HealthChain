@@ -55,7 +55,7 @@ export function Sidebar({ role, isOpen, isMobile, onClose }: SidebarProps) {
 
   const handleLogout = async () => {
     // CRITICAL: Set logout state IMMEDIATELY to prevent race conditions
-    console.log('🚨 Sidebar: Setting logout state IMMEDIATELY on button click')
+
     logoutStateManager.setLoggingOut(true)
 
     try {

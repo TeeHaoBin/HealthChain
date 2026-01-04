@@ -93,11 +93,7 @@ export class IPFSClient {
         throw new Error('Patient address is required in metadata')
       }
 
-      console.log('📤 Converting encrypted blob to base64...', {
-        blobSize: encryptedBlob.size,
-        blobType: encryptedBlob.type,
-        fileName: originalFileName
-      })
+
 
       // Convert blob to base64 for API transfer
       const arrayBuffer = await encryptedBlob.arrayBuffer()
@@ -209,7 +205,7 @@ export class IPFSClient {
    */
   async deleteFile(ipfsHash: string): Promise<boolean> {
     try {
-      console.log('🗑️ Requesting file deletion from IPFS:', ipfsHash)
+
 
       const response = await fetch('/api/delete-from-pinata', {
         method: 'DELETE',
@@ -229,7 +225,7 @@ export class IPFSClient {
         throw new Error(result.error || 'Delete failed')
       }
 
-      console.log('✅ File unpinned from IPFS:', ipfsHash)
+
       return true
     } catch (error) {
       console.error('Error deleting file from IPFS:', error)

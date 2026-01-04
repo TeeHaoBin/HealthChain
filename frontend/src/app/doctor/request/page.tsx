@@ -32,19 +32,19 @@ export default function DoctorRequestPage() {
     try {
       let records
 
-      console.log('[DoctorRequestPage] handleSearch doctorWallet:', doctorWallet)
+
 
       if (doctorWallet) {
         // Use permission-aware search
-        console.log('[DoctorRequestPage] Using permission-aware search')
+
         records = await dbOperations.getRecordsWithPermissions(patientWallet, doctorWallet)
       } else {
         // Fallback to basic search if doctor wallet not available
-        console.log('[DoctorRequestPage] WARNING: Falling back to basic search (no doctorWallet)')
+
         records = await dbOperations.searchRecords(patientWallet)
       }
 
-      console.log('[DoctorRequestPage] Search results:', records?.map(r => ({ id: r.id, title: r.title, permissionStatus: r.permissionStatus })))
+
       setSearchResults(records || [])
 
       if (!records || records.length === 0) {

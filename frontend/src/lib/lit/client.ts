@@ -39,7 +39,7 @@ export class LitProtocolClient {
       });
 
       await this.litNodeClient.connect();
-      console.log("✅ Connected to Lit Protocol");
+
       return this.litNodeClient;
     } catch (error) {
       console.error("❌ Failed to connect to Lit Protocol:", error);
@@ -54,7 +54,7 @@ export class LitProtocolClient {
       // Clear cached auth signature on disconnect
       this.cachedAuthSig = null;
       this.authSigTimestamp = 0;
-      console.log("🔌 Disconnected from Lit Protocol");
+
     }
   }
 
@@ -153,12 +153,7 @@ export class LitProtocolClient {
         throw new Error('File too large for encryption (max 100MB)');
       }
 
-      console.log('🔐 Generating access control conditions...', {
-        patientAddress,
-        doctorCount: authorizedDoctors.length,
-        fileName: file.name,
-        fileSize: file.size
-      });
+
 
       const accessControlConditions = this.generateAccessControlConditions(
         patientAddress,
@@ -169,11 +164,7 @@ export class LitProtocolClient {
         throw new Error('Failed to generate access control conditions');
       }
 
-      console.log('🔒 Starting file encryption with Lit Protocol...', {
-        fileSize: file.size,
-        fileType: file.type,
-        conditionsCount: accessControlConditions.length
-      });
+
 
       // Convert file to base64 for encryption
       const fileBuffer = await file.arrayBuffer();
@@ -197,22 +188,18 @@ export class LitProtocolClient {
         patientAddress
       });
 
-      console.log('📝 File converted to base64, starting encryption...');
+
 
       // v7 update: authSig is not required for encryption
       // const authSig = await this.getAuthSig();
 
-      console.log('🔑 Auth signature obtained, preparing data for encryption...');
+
 
       // Convert string to Uint8Array for encryption
       const encoder = new TextEncoder();
       const dataToEncryptBytes = encoder.encode(fileDataToEncrypt);
 
-      console.log('📦 Data prepared for encryption:', {
-        originalLength: fileDataToEncrypt.length,
-        bytesLength: dataToEncryptBytes.length,
-        dataType: typeof dataToEncryptBytes
-      });
+
 
       // Encrypt the file data bytes
       // v7 update: use encryptUint8Array from @lit-protocol/encryption
@@ -230,11 +217,7 @@ export class LitProtocolClient {
         throw new Error('Encryption failed - no ciphertext returned');
       }
 
-      console.log('✅ File encryption completed successfully', {
-        originalSize: file.size,
-        ciphertextLength: ciphertext.length,
-        hasHash: !!dataToEncryptHash
-      });
+
 
       // Convert ciphertext to blob for consistent API
       const encryptedBlob = new Blob([ciphertext], { type: 'application/octet-stream' });
@@ -271,8 +254,7 @@ export class LitProtocolClient {
     // Check if we have a valid cached auth signature
     const now = Date.now();
     if (this.cachedAuthSig && (now - this.authSigTimestamp) < this.AUTH_SIG_TTL) {
-      console.log("✅ Using cached auth signature (valid for",
-        Math.round((this.AUTH_SIG_TTL - (now - this.authSigTimestamp)) / 1000), "more seconds)");
+
       return this.cachedAuthSig;
     }
 
@@ -296,7 +278,7 @@ export class LitProtocolClient {
       this.cachedAuthSig = authSig;
       this.authSigTimestamp = Date.now();
 
-      console.log("✅ Generated and cached auth signature using Lit Protocol's SIWE helper");
+
       return authSig;
     } catch (error) {
       console.error("❌ Failed to get auth signature:", error);
@@ -324,15 +306,11 @@ export class LitProtocolClient {
       const { decryptToString } = await loadLitPackages();
       const authSig = await this.getAuthSig();
 
-      console.log('🔓 Starting file decryption...', {
-        encryptedDataType: typeof encryptedData,
-        isBlob: encryptedData instanceof Blob,
-        hasSymmetricKey: !!encryptedSymmetricKey
-      });
+
 
       // For our new string-based encryption format
       if (typeof encryptedData === 'string') {
-        console.log('📝 Decrypting string-based encrypted file...');
+
 
         // v7 update: use decryptToString from @lit-protocol/encryption
         const decryptedString = await decryptToString(
@@ -346,7 +324,7 @@ export class LitProtocolClient {
           this.litNodeClient!
         );
 
-        console.log('📝 Parsing decrypted file data...');
+
 
         // Parse the decrypted JSON to get file metadata and data
         const fileData = JSON.parse(decryptedString);
@@ -361,17 +339,12 @@ export class LitProtocolClient {
         // Create blob with original file type
         const blob = new Blob([bytes], { type: fileData.type || "application/octet-stream" });
 
-        console.log('✅ File decryption completed successfully', {
-          fileName: fileData.name,
-          fileType: fileData.type,
-          originalSize: fileData.size,
-          decryptedSize: blob.size
-        });
+
 
         return blob;
       } else if (encryptedData instanceof Blob) {
         // Handle blob-based encryption (if any legacy data exists)
-        console.log('📦 Decrypting blob-based encrypted file...');
+
 
         // Convert blob to string first
         const blobText = await encryptedData.text();

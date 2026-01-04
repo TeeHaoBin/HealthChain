@@ -86,12 +86,12 @@ export function useRole(): UseRoleReturn {
   useEffect(() => {
     const unsubscribe = logoutStateManager.subscribe(() => {
       const currentLogoutState = logoutStateManager.getIsLoggingOut()
-      console.log('🔄 useRole: Logout state changed to:', currentLogoutState ? 'LOGGING OUT' : 'NOT LOGGING OUT')
+
       setIsLoggingOut(currentLogoutState)
 
       // If logout started, immediately clear auth state
       if (currentLogoutState) {
-        console.log('🚫 useRole: Clearing all auth caches due to logout')
+
         resetAuthCache()
       }
     })
@@ -105,20 +105,20 @@ export function useRole(): UseRoleReturn {
 
     // Skip if already in progress - wait for existing check
     if (authCheckInProgress && authCheckPromise) {
-      console.log('⏭️ useRole: Auth check in progress, waiting for result...')
+
       await authCheckPromise
       return
     }
 
     // Skip if params haven't changed AND we have a cached role (unless force refresh)
     if (!forceRefresh && lastAuthCheckKey === cacheKey && authCache.role !== null) {
-      console.log('⏭️ useRole: Using cached auth (same params, have role)')
+
       return
     }
 
     // CRITICAL: Block all authentication during logout
     if (isLoggingOut || logoutStateManager.getIsLoggingOut()) {
-      console.log('🚫 useRole blocked - logout in progress')
+
       resetAuthCache()
       return
     }
@@ -146,7 +146,7 @@ export function useRole(): UseRoleReturn {
               const sessionToken = parsed.sessionToken || parsed.session_token
 
               if (sessionToken) {
-                console.log('🔐 useRole: Found custom session token, validating...')
+
 
                 const validationResult = await logoutStateManager.blockAuthDuringLogout(
                   async () => await supabase.rpc('validate_session_and_get_user', {
@@ -157,7 +157,7 @@ export function useRole(): UseRoleReturn {
 
                 if (validationResult?.data?.success && validationResult?.data?.user) {
                   const userData = validationResult.data.user
-                  console.log('✅ useRole: Custom session valid! User:', userData.role)
+
 
                   updateCache({
                     role: userData.role,
@@ -168,7 +168,7 @@ export function useRole(): UseRoleReturn {
                   return
                 } else {
                   // Session invalid or expired - clear it
-                  console.log('⚠️ useRole: Custom session invalid or expired, clearing...')
+
                   localStorage.removeItem('healthchain_auth')
                 }
               }
@@ -217,7 +217,7 @@ export function useRole(): UseRoleReturn {
           // ============================================
           // PRIORITY 3: Wallet connected but no session - check user exists
           // ============================================
-          console.log('ℹ️ Wallet connected but no session - checking if user exists for:', address.slice(0, 6) + '...')
+
 
           const userData = await logoutStateManager.blockAuthDuringLogout(
             () => getUserByWallet(address),
@@ -225,14 +225,14 @@ export function useRole(): UseRoleReturn {
           )
 
           if (userData) {
-            console.log('✅ User found for connected wallet:', userData.role)
+
             updateCache({
               role: userData.role,
               user: userData,
               loading: false
             })
           } else {
-            console.log('ℹ️ Wallet connected but no user record found - user needs to register')
+
             updateCache({ role: null, user: null, loading: false })
           }
         } else {
@@ -274,17 +274,17 @@ export function useRole(): UseRoleReturn {
       // Only reset cache for SIGNED_IN and SIGNED_OUT
       // TOKEN_REFRESHED should NOT reset the role - it's just a session refresh
       if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
-        console.log('🔐 Auth state changed:', event)
+
         lastAuthCheckKey = ''
         checkAuthAndRole(true)
       } else if (event === 'TOKEN_REFRESHED') {
         // For token refresh, only re-check if we don't have a role cached
         // This prevents the role from flashing to null
         if (authCache.role === null) {
-          console.log('🔄 Token refreshed, checking auth (no cached role)')
+
           checkAuthAndRole(true)
         } else {
-          console.log('🔄 Token refreshed, keeping cached role:', authCache.role)
+
         }
       }
     })
