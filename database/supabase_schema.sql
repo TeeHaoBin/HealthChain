@@ -167,21 +167,24 @@ CREATE TABLE public.transfer_requests (
   requesting_doctor_wallet text NOT NULL CHECK (requesting_doctor_wallet ~ '^0x[a-f0-9]{40}$'::text),
   source_doctor_wallet text NOT NULL CHECK (source_doctor_wallet ~ '^0x[a-f0-9]{40}$'::text),
   source_organization text,
+  requesting_organization text,
   
   -- Request details
   requested_record_ids uuid[],
   snapshot_document_titles text[],
   purpose text NOT NULL CHECK (length(purpose) >= 10),
   urgency text DEFAULT 'routine'::text CHECK (urgency = ANY (ARRAY['routine'::text, 'urgent'::text, 'emergency'::text])),
+  document_description text,
   
   -- Two-stage approval workflow
   patient_status text DEFAULT 'pending'::text CHECK (patient_status = ANY (ARRAY['pending'::text, 'approved'::text, 'denied'::text])),
   patient_responded_at timestamp with time zone,
   patient_denial_reason text,
   
-  source_status text DEFAULT 'awaiting_patient'::text CHECK (source_status = ANY (ARRAY['awaiting_patient'::text, 'pending'::text, 'granted'::text, 'failed'::text])),
+  source_status text DEFAULT 'awaiting_upload'::text CHECK (source_status = ANY (ARRAY['awaiting_upload'::text, 'uploaded'::text, 'rejected'::text, 'granted'::text, 'failed'::text])),
   source_responded_at timestamp with time zone,
   source_failure_reason text,
+  source_rejection_reason text,
   
   -- Timestamps
   created_at timestamp with time zone DEFAULT now(),
@@ -782,6 +785,85 @@ BEGIN
 END;
 $function$
 ;
+
+
+-- 1. INVALIDATE SESSION FUNCTION
+-- Called during logout to mark session as inactive
+CREATE OR REPLACE FUNCTION public.invalidate_session(p_session_token TEXT)
+RETURNS JSON
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  rows_affected INTEGER;
+BEGIN
+  UPDATE user_sessions 
+  SET 
+    active = FALSE,
+    terminated_reason = 'user_logout',
+    last_activity = NOW()
+  WHERE session_token = p_session_token
+    AND active = TRUE;
+  
+  GET DIAGNOSTICS rows_affected = ROW_COUNT;
+  
+  IF rows_affected > 0 THEN
+    RETURN json_build_object(
+      'success', TRUE,
+      'message', 'Session invalidated successfully'
+    );
+  ELSE
+    RETURN json_build_object(
+      'success', FALSE,
+      'message', 'Session not found or already inactive'
+    );
+  END IF;
+END;
+$$;
+
+-- 2. CLEANUP OLD SESSIONS FUNCTION  
+-- Can be called manually or via a scheduled job
+CREATE OR REPLACE FUNCTION public.cleanup_old_sessions()
+RETURNS JSON
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  deleted_count INTEGER;
+BEGIN
+  -- Delete sessions that are:
+  -- 1. Expired (past expires_at)
+  -- 2. Inactive and older than 7 days
+  DELETE FROM user_sessions 
+  WHERE expires_at < NOW() 
+     OR (active = FALSE AND last_activity < NOW() - INTERVAL '7 days');
+  
+  GET DIAGNOSTICS deleted_count = ROW_COUNT;
+  
+  RETURN json_build_object(
+    'success', TRUE,
+    'deleted_count', deleted_count,
+    'cleaned_at', NOW()
+  );
+END;
+$$;
+
+-- ==========================================
+-- TRIGGERS
+-- ==========================================
+
+CREATE TRIGGER normalize_wallet_trigger 
+BEFORE INSERT OR UPDATE ON public.users 
+FOR EACH ROW EXECUTE FUNCTION normalize_wallet_address();
+
+CREATE TRIGGER update_users_updated_at 
+BEFORE UPDATE ON public.users 
+FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- Note: This trigger requires permissions on the auth schema
+-- CREATE TRIGGER ensure_user_registered_trigger 
+-- AFTER INSERT ON auth.users 
+-- FOR EACH ROW EXECUTE FUNCTION ensure_user_registered();
 
 -- ==========================================
 -- ROW LEVEL SECURITY POLICIES
