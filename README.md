@@ -57,6 +57,12 @@ npm install
 cp .env.example .env.local
 # Edit .env.local with your Supabase and Pinata credentials
 
+# Set up Supabase Database
+# 1. Create a new project at https://supabase.com
+# 2. Go to the SQL Editor
+# 3. Copy contents of database/supabase_schema.sql
+# 4. Paste and Run to create tables, functions, and policies
+
 # Run development server
 npm run dev
 ```
