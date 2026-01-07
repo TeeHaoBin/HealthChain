@@ -2,6 +2,10 @@
 
 A decentralized Electronic Health Record (EHR) system that enhances data privacy, security, and patient control through blockchain technology and threshold cryptography.
 
+## 🔗 Links
+- 📂 **GitHub Repository:** [https://github.com/TeeHaoBin/HealthChain](https://github.com/TeeHaoBin/HealthChain)
+- 🚀 **Live Demo:** [https://healthchain-fyp.vercel.app](https://healthchain-fyp.vercel.app)
+
 ## 🎯 Project Objectives
 
 1. **Data Privacy & Security** - End-to-end encryption via Lit Protocol's threshold cryptography
@@ -115,3 +119,12 @@ This project is developed as a Final Year Project (FYP) for academic purposes.
 ## 🌍 SDG Alignment
 
 This project contributes to **UN Sustainable Development Goal 9** by developing quality, reliable, and resilient digital healthcare infrastructure that promotes equitable access to health information.
+
+## 🎓 Academic Details
+
+- **University:** Asia Pacific University of Technology and Innovation (APU)
+- **Name:** Tee Hao Bin
+- **Student ID:** TP074435
+- **Email:** [TP074435@mail.apu.edu.my](mailto:TP074435@mail.apu.edu.my)
+- **Intake Code:** APD3F2505CS
+- **Programme:** Bachelor of Science (Honours) in Computer Science
